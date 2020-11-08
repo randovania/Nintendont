@@ -214,7 +214,7 @@ void changeToDefaultDrive()
 	f_chdrive(primaryDevice);
 	f_chdir_char("/");
 }
-
+static s32 kdData[8] ALIGNED(32);
 /**
  * Get multi-game and region code information.
  * @param CurDICMD	[in] DI command. (0 == disc image, DIP_CMD_NORMAL == GameCube disc, DIP_CMD_DVDR == DVD-R)
@@ -1558,6 +1558,15 @@ int main(int argc, char **argv)
 	fd = IOS_Open("/dev/net/kd/request", 0);
 	IOS_Ioctl(fd, IOCTL_ExecSuspendScheduler, NULL, 0, &out, 4);
 	IOS_Close(fd);
+
+	kdData[0] = -1;
+	s32 kdFd = IOS_Open("/dev/net/kd/request",0);
+	do
+	{
+		IOS_Ioctl(kdFd, 6, NULL, 0, kdData, 0x20);
+	}
+	while(kdData[0] < 0);
+	IOS_Close(kdFd);
 
 	if(ncfg->Config & NIN_CFG_BBA_EMU)
 	{

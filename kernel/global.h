@@ -236,6 +236,18 @@ typedef struct PADStatus
 #define PAD_BUTTON_MENU         0x1000
 #define PAD_BUTTON_START        0x1000
 
+static inline u8 read8(u32 addr)
+{
+	u32 data;
+	__asm__ volatile ("ldrb\t%0, [%1]" : "=l" (data) : "l" (addr));
+	return data;
+}
+
+static inline void write8(u32 addr, u8 data)
+{
+	__asm__ volatile ("strb\t%0, [%1]" : : "l" (data), "l" (addr));
+}
+
 static inline u16 read16(u32 addr)
 {
 	u32 data;
