@@ -153,15 +153,35 @@ void readBytesFromGCMemory(u32 addr, int byte_count, u8* output) {
 }
 
 void writeBytesToGCMemory(u32 addr, int byte_count, u8* input) {
-  int index = 0;
-  while (byte_count >= 4) {
+  int i, index = 0, bytes_left = byte_count;
+  u32 current_address = addr & (~3);
+  if (addr > current_address) {
+    u32 value = read32(P2C(current_address));
+    for (i = addr & 3; i < 4 && bytes_left >= 0; ++i) {
+      int shift = ((3 - i) * 8);
+      value &= ~(0xFF << shift);
+      value |= input[index++] << shift;
+      bytes_left -= 1;
+    }
+    write32(P2C(current_address), value);
+    current_address += 4;
+  }
+  while (bytes_left >= 4) {
     u32 value = get32FromBuffer(input, &index);
-    write32ToGCMemory(addr + index - 4, value);
-    byte_count -= 4;
+    write32ToGCMemory(current_address, value);
+    bytes_left -= 4;
+    current_address += 4;
   }
-  while (byte_count >= 0) {
-    write8(P2C(addr + index), input[index]);
-    index++;
-    byte_count -= 1;
+  if (bytes_left >= 0) {
+    u32 value = read32(P2C(current_address));
+    for (i = 0; i < bytes_left; ++i) {
+      int shift = ((3 - i) * 8);
+      value &= ~(0xFF << shift);
+      value |= input[index++] << shift;
+      bytes_left -= 1;
+    }
+    write32(P2C(current_address), value);
+    current_address += 1;
   }
+  sync_after_write_align32((void*)(P2C(addr)), byte_count);
 }
