@@ -152,36 +152,43 @@ void readBytesFromGCMemory(u32 addr, int byte_count, u8* output) {
   }
 }
 
+void updateAddressWithByteOps(u32 address, int initial_byte, int* bytes_left, u8* input, int* input_index) {
+  int i;
+  u32 value = read32(P2C(address));
+  for (i = initial_byte; i < 4 && *bytes_left >= 0; ++i) {
+    int shift = ((3 - i) * 8);
+    value &= ~(0xFF << shift);
+    value |= input[*input_index] << shift;
+    *bytes_left -= 1;
+    *input_index += 1;
+  }
+  write32(P2C(address), value);
+}
+
 void writeBytesToGCMemory(u32 addr, int byte_count, u8* input) {
-  int i, index = 0, bytes_left = byte_count;
+  int input_index = 0, bytes_left = byte_count;
+  
+  sync_before_read_align32((void*)(P2C(addr)), byte_count);
+
+  // Start writing from the aligned version of addr
   u32 current_address = addr & (~3);
+  
   if (addr > current_address) {
-    u32 value = read32(P2C(current_address));
-    for (i = addr & 3; i < 4 && bytes_left >= 0; ++i) {
-      int shift = ((3 - i) * 8);
-      value &= ~(0xFF << shift);
-      value |= input[index++] << shift;
-      bytes_left -= 1;
-    }
-    write32(P2C(current_address), value);
+    // addr isn't aligned to 32-bit writes, so we need to ignore some of the most significant bytes of thi 32-bit write
+    updateAddressWithByteOps(current_address, addr & 3, &bytes_left, input, &input_index);
     current_address += 4;
   }
   while (bytes_left >= 4) {
-    u32 value = get32FromBuffer(input, &index);
-    write32ToGCMemory(current_address, value);
-    bytes_left -= 4;
-    current_address += 4;
-  }
-  if (bytes_left >= 0) {
-    u32 value = read32(P2C(current_address));
-    for (i = 0; i < bytes_left; ++i) {
-      int shift = ((3 - i) * 8);
-      value &= ~(0xFF << shift);
-      value |= input[index++] << shift;
-      bytes_left -= 1;
-    }
+    // These are simple aligned 32-bit writes
+    u32 value = get32FromBuffer(input, &input_index);
     write32(P2C(current_address), value);
-    current_address += 1;
+    current_address += 4;
+    bytes_left -= 4;
+  }
+  if (bytes_left > 0) {
+    // Not enough bytes left, so ignore a few of the least significant bytes
+    updateAddressWithByteOps(current_address, 0, &bytes_left, input, &input_index);
+    current_address += 4;
   }
   sync_after_write_align32((void*)(P2C(addr)), byte_count);
 }
