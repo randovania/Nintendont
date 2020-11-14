@@ -1852,7 +1852,6 @@ bool SelectDevAndGame(void)
 	// Select the source device. (SD or USB)
 	bool SaveSettings = false;
 	bool redraw = true;	// Need to draw the menu the first time.
-	
 	while (1)
 	{
 		VIDEO_WaitVSync();
@@ -1862,13 +1861,13 @@ bool SelectDevAndGame(void)
 
 		if (redraw)
 		{
-			UseSD = 1; // (ncfg->Config & NIN_CFG_USB) == 0; // NO USB HACK
+			UseSD = (ncfg->Config & NIN_CFG_USB) == 0;
 			PrintInfo();
 			PrintButtonActions("Exit", "Select", NULL, NULL);
 			PrintFormat(DEFAULT_SIZE, BLACK, MENU_POS_X + 53 * 6 - 8, MENU_POS_Y + 20 * 6, UseSD ? ARROW_LEFT : "");
 			PrintFormat(DEFAULT_SIZE, BLACK, MENU_POS_X + 53 * 6 - 8, MENU_POS_Y + 20 * 7, UseSD ? "" : ARROW_LEFT);
 			PrintFormat(DEFAULT_SIZE, BLACK, MENU_POS_X + 47 * 6 - 8, MENU_POS_Y + 20 * 6, " SD  ");
-			PrintFormat(DEFAULT_SIZE, BLACK, MENU_POS_X + 47 * 6 - 50, MENU_POS_Y + 20 * 7, "(UNAVAILABLE) USB  ");
+			PrintFormat(DEFAULT_SIZE, BLACK, MENU_POS_X + 47 * 6 - 8, MENU_POS_Y + 20 * 7, "USB  ");
 			redraw = false;
 
 			// Render the screen here to prevent a blank frame
@@ -1891,7 +1890,7 @@ bool SelectDevAndGame(void)
 		}
 		else if (FPAD_Down(0))
 		{
-			//ncfg->Config = ncfg->Config | NIN_CFG_USB; // NO USB HACK
+			ncfg->Config = ncfg->Config | NIN_CFG_USB;
 			redraw = true;
 		}
 		else if (FPAD_Up(0))

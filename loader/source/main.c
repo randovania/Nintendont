@@ -825,7 +825,7 @@ int main(int argc, char **argv)
 		}
 	}
 	ReconfigVideo(rmode);
-	UseSD = 1; // (ncfg->Config & NIN_CFG_USB) == 0; // NO USB HACK
+	UseSD = (ncfg->Config & NIN_CFG_USB) == 0;
 
 	bool progressive = (CONF_GetProgressiveScan() > 0) && VIDEO_HaveComponentCable();
 	if(progressive) //important to prevent blackscreens
