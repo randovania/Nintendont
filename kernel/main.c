@@ -141,7 +141,7 @@ int _main( int argc, char *argv[] )
 	//get config from loader
 	ConfigSyncBeforeRead();
 
-	u32 UseUSB = 0; // ConfigGetConfig(NIN_CFG_USB);  // NO USB HACK
+	u32 UseUSB = ConfigGetConfig(NIN_CFG_USB);
 	SetDiskFunctions(UseUSB);
 
 	BootStatus(2, 0, 0);
