@@ -5,12 +5,7 @@
 #include "net_memory_operation.h"
 
 #define GET_PTR(value) (P2C(value))
-#define MEM_HIGH (0x2400000)
-#define INVALID_PTR(value) (value) > MEM_HIGH
-
-#define PRIME_1_GAMEID (0x474D3845)
-#define PRIME_2_GAMEID (0x47324d45)
-#define PRIME_1_MAKERID (0x3031)
+#define VALID_PTR(value) (value >= 0x80000000 && value < 0x82400000)
 
 #define CHECK_INPUT(input) if ((input) > MAX_INPUT_BYTES) { output[0] = 0xFF; return 1; }
 
@@ -74,10 +69,15 @@ int processReadCommands(MemoryOperation *memory_op, u8* output) {
 
     if (op->has_offset) {
       CHECK_INPUT(input_index + 2)
-      s16 offset = (s16) get16FromBuffer(memory_op->data, &input_index);
-      addr = (u32)((s32)read32FromGCMemory(addr) + (s32)offset);
+      s32 offset = (s32)((s16) get16FromBuffer(memory_op->data, &input_index));
+      u32 pointer = read32FromGCMemory(addr);
+      if (VALID_PTR(pointer)) {
+        addr = (u32)((s32)pointer + offset);
+      } else {
+        addr = 0;
+      }
     }
-    bool is_valid_addr = !(INVALID_PTR(P2C(addr)));
+    bool is_valid_addr = VALID_PTR(addr);
 
     if (op->has_read && is_valid_addr) {
       if (result_index > MAX_OUTPUT_BYTES) {
@@ -122,20 +122,16 @@ int processMemoryOperation(MemoryOperation *memory_op, u8* output) {
 }
 
 u32 read32FromGCMemory(u32 addr) {
-  u32 actualPtr = P2C(addr);
-  if (INVALID_PTR(actualPtr)) {
-    return 0;
+  if (VALID_PTR(addr)) {
+    return read32(GET_PTR(addr));
   }
-  u32 res = read32(GET_PTR(actualPtr));
-  return res;
+  return 0;
 }
 
 void write32ToGCMemory(u32 addr, u32 value) {
-  u32 actualPtr = P2C(addr);
-  if (INVALID_PTR(actualPtr)) {
-    return;
+  if (VALID_PTR(addr)) {
+    write32(GET_PTR(addr), value);
   }
-  write32(GET_PTR(actualPtr), value);
 }
 
 void readBytesFromGCMemory(u32 addr, int byte_count, u8* output) {
