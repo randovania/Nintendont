@@ -844,9 +844,10 @@ int main(int argc, char **argv)
 	{
 		// Autobooting.
 		gprintf("Autobooting:\"%s\"\r\n", ncfg->GamePath );
-		PrintInfo();
-		GRRLIB_Render();
-		ClearScreen();
+		//this aparently can break some vc autoboot issues
+                //PrintInfo();
+		//GRRLIB_Render();
+		//ClearScreen();
 	}
 
 //Init DI and set correct ID if needed
@@ -1027,27 +1028,32 @@ int main(int argc, char **argv)
 //Set Language
 	if(ncfg->Language == NIN_LAN_AUTO || ncfg->Language >= NIN_LAN_LAST)
 	{
-		switch (CONF_GetLanguage())
+		if(BI2region == BI2_REGION_PAL)
 		{
-			case CONF_LANG_GERMAN:
-				ncfg->Language = NIN_LAN_GERMAN;
-				break;
-			case CONF_LANG_FRENCH:
-				ncfg->Language = NIN_LAN_FRENCH;
-				break;
-			case CONF_LANG_SPANISH:
-				ncfg->Language = NIN_LAN_SPANISH;
-				break;
-			case CONF_LANG_ITALIAN:
-				ncfg->Language = NIN_LAN_ITALIAN;
-				break;
-			case CONF_LANG_DUTCH:
-				ncfg->Language = NIN_LAN_DUTCH;
-				break;
-			default:
-				ncfg->Language = NIN_LAN_ENGLISH;
-				break;
+			switch (CONF_GetLanguage())
+			{
+				case CONF_LANG_GERMAN:
+					ncfg->Language = NIN_LAN_GERMAN;
+					break;
+				case CONF_LANG_FRENCH:
+					ncfg->Language = NIN_LAN_FRENCH;
+					break;
+				case CONF_LANG_SPANISH:
+					ncfg->Language = NIN_LAN_SPANISH;
+					break;
+				case CONF_LANG_ITALIAN:
+					ncfg->Language = NIN_LAN_ITALIAN;
+					break;
+				case CONF_LANG_DUTCH:
+					ncfg->Language = NIN_LAN_DUTCH;
+					break;
+				default:
+					ncfg->Language = NIN_LAN_ENGLISH;
+					break;
+			}
 		}
+		else
+			ncfg->Language = NIN_LAN_ENGLISH;
 	}
 
 	if(ncfg->Config & NIN_CFG_MEMCARDEMU)
@@ -1116,17 +1122,25 @@ int main(int argc, char **argv)
 		__SYS_UnlockSram(1); // 1 -> write changes
 		while(!__SYS_SyncSram());
 	}
+	
+	//Check if game is Triforce game
+	u32 IsTRIGame = 0;
+	if (ncfg->GameID != 0x47545050) //Damn you Knights Of The Temple!
+		IsTRIGame = TRISetupGames(ncfg->GamePath, CurDICMD, ISOShift);
+	
+	if(IsTRIGame != 0)
+	{
+		// Create saves directory.
+		char BasePath[20];
+		snprintf(BasePath, sizeof(BasePath), "%s:/saves", GetRootDevice());
+		f_mkdir_char(BasePath);
+	}
 
 	#define GCN_IPL_SIZE 2097152
 	#define TRI_IPL_SIZE 1048576
 	void *iplbuf = NULL;
 	bool useipl = false;
 	bool useipltri = false;
-
-	//Check if game is Triforce game
-	u32 IsTRIGame = 0;
-	if (ncfg->GameID != 0x47545050) //Damn you Knights Of The Temple!
-		IsTRIGame = TRISetupGames(ncfg->GamePath, CurDICMD, ISOShift);
 
 	if (!(ncfg->Config & (NIN_CFG_SKIP_IPL)))
 	{
