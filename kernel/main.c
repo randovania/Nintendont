@@ -37,7 +37,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include "GCAM.h"
 #include "TRI.h"
 #include "Patch.h"
-
+#include "net.h"
 #include "diskio.h"
 #include "usbstorage.h"
 #include "SDI.h"
@@ -254,7 +254,7 @@ int _main( int argc, char *argv[] )
 
 	PatchInit();
 
-	SOCKInit();
+	//SOCKInit();
 //Tell PPC side we are ready!
 	cc_ahbMemFlush(1);
 	mdelay(1000);
@@ -389,7 +389,7 @@ int _main( int argc, char *argv[] )
 		}
 		else /* No device I/O so make sure this stays updated */
 			GetCurrentTime();
-		udelay(20); //wait for other threads
+		udelay(200); //wait for other threads
 
 		if( WaitForRealDisc == 1 )
 		{
@@ -446,6 +446,7 @@ int _main( int argc, char *argv[] )
 			SOCKUpdateRegisters();
 			udelay(200);
 		}
+		NetUpdate();
 		StreamUpdateRegisters();
 		CheckOSReport();
 		if(GCNCard_CheckChanges())

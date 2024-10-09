@@ -178,7 +178,7 @@ static s32 Download(DOWNLOADS download_number)  {
 	char filepath[MAXPATHLEN];
 
 	bool dir_argument_exists = (launch_dir[0] != 0);
-	const char *dir = (dir_argument_exists ? launch_dir : "/apps/Nintendont/");
+	const char *dir = (dir_argument_exists ? launch_dir : "/apps/Nintendont-multiworld/");
 
 	ClearScreen();
 	PrintInfo();
@@ -243,7 +243,7 @@ static s32 Download(DOWNLOADS download_number)  {
 	if (!dir_argument_exists) {
 		gprintf("Creating new directory\r\n");
 		f_mkdir_char("/apps");
-		f_mkdir_char("/apps/Nintendont");
+		f_mkdir_char("/apps/Nintendont-multiworld");
 	}
 
 	// Write the file to disk.
