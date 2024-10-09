@@ -7,11 +7,11 @@ on:
 
 jobs:
   build:
-    container: henriquegemignani/docker-devkitpro-nintendont
+    container: ghcr.io/randovania/docker-devkitpro-nintendont:main
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
     - name: make
       run: make
 
