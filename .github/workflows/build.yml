@@ -4,7 +4,7 @@ on: push
 
 jobs:
   build:
-    container: henriquegemignani/docker-devkitpro-nintendont
+    container: ghcr.io/randovania/docker-devkitpro-nintendont:main
     runs-on: ubuntu-latest
 
     steps:
