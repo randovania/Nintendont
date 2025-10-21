@@ -4,8 +4,8 @@
 #include "global.h"
 
 #define API_VERSION 1
-#define MAX_INPUT_BYTES 40
-#define MAX_OUTPUT_BYTES 40
+#define MAX_INPUT_BYTES 80
+#define MAX_OUTPUT_BYTES 80
 #define MAX_ABSOLUTE_ADDRESSES 8
 #define MINIMUM_MESSAGE_SIZE 4
 
