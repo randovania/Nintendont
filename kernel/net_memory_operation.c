@@ -58,7 +58,10 @@ int processReadCommands(MemoryOperation *memory_op, u8* output) {
     struct OperationHeader *op = (struct OperationHeader *)&memory_op->data[input_index++];
 
     u8 addr_index = op->address_index;
-    u32 addr = addresses[addr_index];
+    u32 addr = 0;
+    if (addr_index < memory_op->absolute_addresses_count) {
+      addr = addresses[addr_index];
+    }
 
     //dbgprintf("[Net] [processReadCommands] %d - Address: %x - Index: %d - is_word: %d - has_offset: %d - has_read: %d - has_write: %d\r\n", i, addr, addr_index, op->is_word, op->has_offset, op->has_read, op->has_write);
 
@@ -80,7 +83,7 @@ int processReadCommands(MemoryOperation *memory_op, u8* output) {
     bool is_valid_addr = VALID_PTR(addr);
 
     if (op->has_read && is_valid_addr) {
-      if (result_index > MAX_OUTPUT_BYTES) {
+      if (result_index + byte_count > MAX_OUTPUT_BYTES) {
         return 0;
       }
 
@@ -141,7 +144,7 @@ void readBytesFromGCMemory(u32 addr, int byte_count, u8* output) {
     write32ToBuffer(output, result, &index);
     byte_count -= 4;
   }
-  while (byte_count >= 0) {
+  while (byte_count > 0) {
     u8 result = read8(P2C(addr + index));
     output[index++] = result;
     byte_count -= 1;
@@ -151,7 +154,7 @@ void readBytesFromGCMemory(u32 addr, int byte_count, u8* output) {
 void updateAddressWithByteOps(u32 address, int initial_byte, int* bytes_left, u8* input, int* input_index) {
   int i;
   u32 value = read32(P2C(address));
-  for (i = initial_byte; i < 4 && *bytes_left >= 0; ++i) {
+  for (i = initial_byte; i < 4 && *bytes_left > 0; ++i) {
     int shift = ((3 - i) * 8);
     value &= ~(0xFF << shift);
     value |= input[*input_index] << shift;
