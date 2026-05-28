@@ -4,9 +4,9 @@
 #include "global.h"
 
 #define API_VERSION 1
-#define MAX_INPUT_BYTES 100
-#define MAX_OUTPUT_BYTES 100
-#define MAX_ABSOLUTE_ADDRESSES 8
+#define MAX_INPUT_BYTES 1000
+#define MAX_OUTPUT_BYTES 1000
+#define MAX_ABSOLUTE_ADDRESSES 16
 #define MINIMUM_MESSAGE_SIZE 4
 
 #pragma pack(push,1)
