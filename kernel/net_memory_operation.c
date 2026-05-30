@@ -37,8 +37,10 @@ int processReadCommands(MemoryOperation *memory_op, u8* output) {
   int i, result_index = 0, input_index = 0;
   u32 startTime = read32(HW_TIMER);
   u32 newTime = 0;
+  u32 times[80] = {0};
+  int currentTimeIndex = 0;
 
-  #define dbgPrintTime(comment) newTime = read32(HW_TIMER); dbgprintf("[Net] [processReadCommands] %s: %u cycles\n", comment, newTime - startTime);
+  #define dbgPrintTime(comment) newTime = read32(HW_TIMER); times[currentTimeIndex++] = newTime - startTime;
 
   for (i = 0; i < memory_op->absolute_addresses_count && i < MAX_ABSOLUTE_ADDRESSES; ++i) {
     addresses[i] = get32FromBuffer(memory_op->data, &input_index);
@@ -113,6 +115,10 @@ int processReadCommands(MemoryOperation *memory_op, u8* output) {
     }
     output[i / 8] |= is_valid_addr << (i % 8);
     dbgPrintTime("End of loop iteration");
+  }
+
+  for (i = 0; i < currentTimeIndex; ++i) {
+    dbgprintf("[Net] [processReadCommands] Time %d: %d nanoseconds\n", i, times[i]*526.7);
   }
 
   return result_index;
