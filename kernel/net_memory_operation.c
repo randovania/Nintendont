@@ -35,6 +35,10 @@ void write32ToBuffer(u8* output, u32 value, int *index) {
 int processReadCommands(MemoryOperation *memory_op, u8* output) {
   u32 addresses[MAX_ABSOLUTE_ADDRESSES];
   int i, result_index = 0, input_index = 0;
+  u32 startTime = read32(HW_TIMER);
+  u32 newTime = 0;
+
+  #define dbgPrintTime(comment) newTime = read32(HW_TIMER); dbgprintf("[Net] [processReadCommands] %s: %u cycles\n", comment, newTime - startTime);
 
   for (i = 0; i < memory_op->absolute_addresses_count && i < MAX_ABSOLUTE_ADDRESSES; ++i) {
     addresses[i] = get32FromBuffer(memory_op->data, &input_index);
@@ -45,15 +49,21 @@ int processReadCommands(MemoryOperation *memory_op, u8* output) {
     return 0;
   }
 
+  dbgPrintTime("After op 0 special return");  
+
   int num_op_success_bytes = 1 + (memory_op->operations_count - 1) / 8;
   for (i = 0; i < num_op_success_bytes; ++i) {
     // initialize these with 0, since we fill these incrementally
     output[i] = 0;
   }
+
+  dbgPrintTime("After initializing output bytes");
+
   // Skip the bytes reserved for informing valid addresses
   result_index += num_op_success_bytes;
 
   for (i = 0; i < memory_op->operations_count; ++i) {
+    dbgPrintTime("Start of loop iteration");
     CHECK_INPUT(input_index)
     struct OperationHeader *op = (struct OperationHeader *)&memory_op->data[input_index++];
 
@@ -82,6 +92,8 @@ int processReadCommands(MemoryOperation *memory_op, u8* output) {
     }
     bool is_valid_addr = VALID_PTR(addr);
 
+
+    dbgPrintTime("Before read");
     if (op->has_read && is_valid_addr) {
       if (result_index + byte_count > MAX_OUTPUT_BYTES) {
         return 0;
@@ -91,6 +103,7 @@ int processReadCommands(MemoryOperation *memory_op, u8* output) {
       result_index += byte_count;
     }
 
+    dbgPrintTime("After read");
     if (op->has_write) {
       CHECK_INPUT(input_index + byte_count)
       if (is_valid_addr) {
@@ -99,6 +112,7 @@ int processReadCommands(MemoryOperation *memory_op, u8* output) {
       input_index += byte_count;
     }
     output[i / 8] |= is_valid_addr << (i % 8);
+    dbgPrintTime("End of loop iteration");
   }
 
   return result_index;
