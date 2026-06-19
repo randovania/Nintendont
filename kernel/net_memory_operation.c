@@ -139,7 +139,8 @@ void write32ToGCMemory(u32 addr, u32 value) {
 
 void readBytesFromGCMemory(u32 addr, int byte_count, u8* output) {
   int index = 0;
-  while (byte_count >= 4) {
+  // Try doing 32bit reads. GCN will crash if addr isn't aligned for them. 
+  while ((byte_count >= 4) && (addr & 3) == 0) {
     u32 result = read32FromGCMemory(addr + index);
     write32ToBuffer(output, result, &index);
     byte_count -= 4;
@@ -173,7 +174,7 @@ void writeBytesToGCMemory(u32 addr, int byte_count, u8* input) {
   u32 current_address = addr & (~3);
   
   if (addr > current_address) {
-    // addr isn't aligned to 32-bit writes, so we need to ignore some of the most significant bytes of thi 32-bit write
+    // addr isn't aligned to 32-bit writes, so we need to ignore some of the most significant bytes of this 32-bit write
     updateAddressWithByteOps(current_address, addr & 3, &bytes_left, input, &input_index);
     current_address += 4;
   }
