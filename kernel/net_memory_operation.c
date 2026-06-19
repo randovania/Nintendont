@@ -73,6 +73,11 @@ int processReadCommands(MemoryOperation *memory_op, u8* output) {
     if (op->has_offset) {
       CHECK_INPUT(input_index + 2)
       s32 offset = (s32)((s16) get16FromBuffer(memory_op->data, &input_index));
+      // Pointer addresses are always 32bit aligned (?), so if they aren't, quit out
+      if ((addr & 3) != 0) {
+        return 0;
+      }
+      
       u32 pointer = read32FromGCMemory(addr);
       if (VALID_PTR(pointer)) {
         addr = (u32)((s32)pointer + offset);
