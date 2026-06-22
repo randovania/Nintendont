@@ -2,6 +2,7 @@
 #define _NET_MEMORY_OPERATION_H
 
 #include "global.h"
+#include "../common/include/NintendontVersion.h"
 
 #define API_VERSION 1
 #define MAX_INPUT_BYTES 256

@@ -115,6 +115,9 @@ int processRequestVersion(MemoryOperation *memory_op, u8* output) {
   write32ToBuffer(output, MAX_INPUT_BYTES, &result_index);
   write32ToBuffer(output, MAX_OUTPUT_BYTES, &result_index);
   write32ToBuffer(output, MAX_ABSOLUTE_ADDRESSES, &result_index);
+  write32ToBuffer(output, NIN_MAJOR_VERSION, &result_index);
+  write32ToBuffer(output, NIN_MINOR_VERSION, &result_index);
+
   return result_index;
 }
 
