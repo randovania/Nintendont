@@ -48,7 +48,7 @@ typedef struct MemoryOperation {
     MemoryOperationHeader header;
     u8* data;
     // u8 byte_count;  # if !header.is_word
-    // u16 word_count; # if header.has_offset
+    // u16 offset_count; # if header.has_offset
     // u8 write_data[byte_count or 4]; # if header.has_write
 } MemoryOperation;
 
