@@ -1,3 +1,18 @@
+### Nintendont-Multiworld
+
+A fork of [FIX94/Nintendont](https://github.com/FIX94/Nintendont) to allow interacting with the game's memory over the network.  
+You can download it at the [releases page](https://github.com/randovania/Nintendont/releases/latest).
+
+#### Compiling
+
+In addition to the standard ways of compiling this project, we also provide a docker image for convenience.  
+You can fetch it with `docker pull ghcr.io/randovania/docker-devkitpro-nintendont:main`  
+And then compile the project with `docker run --mount type=bind,src=.,dst=/nintendont -w /nintendont ghcr.io/randovania/docker-devkitpro-nintendont:main make`
+
+---
+
+Original readme follows.
+
 ### Nintendont
 A Wii Homebrew Project to play GC Games on Wii and vWii on Wii U
 
