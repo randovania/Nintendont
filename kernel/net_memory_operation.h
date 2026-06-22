@@ -53,14 +53,13 @@ typedef struct MemoryOperation {
     // u8 write_data[byte_count or 4]; # if header.has_write
 } MemoryOperation;
 
-/* TODO
- t y*pedef struct ReadArrayOperation {
- SocketOperationHeader header;  // type is always 2
- u32 address;
- u16 length;
- u16 stride;
- } ReadArrayOperation;
- */
+typedef struct ReadArrayOperation {
+    SocketOperationHeader header;  // type is always 2
+    u32 address;
+    u16 count;
+    u16 size;
+    u16 stride;
+} ReadArrayOperation;
 #pragma pack(pop)
 
 int processMemoryOperation(SocketOperation *socket_op, u8* output);

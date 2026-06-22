@@ -121,12 +121,39 @@ int processRequestVersion(RequestVersionOperation *request_version_op, u8* outpu
   return result_index;
 }
 
+int processArrayOperation(ReadArrayOperation *read_array_op, u8* output) {
+  // Iterates at address with a step of `stride` and reads `size` bytes `count` times.
+  // First byte of output buffer indicates success if its 1 and failure if its 0.
+  // Returns how many elements should be considered written to the output buffer.
+  output[0] = 0;
+  int result_index = 1;
+  int i = 0;
+  u32 address = read_array_op->address;
+  u16 size = read_array_op->size;
+
+  for (i = 0; i < read_array_op->count; ++i) {
+    if ((result_index + size) > MAX_OUTPUT_BYTES) {
+      return 0;
+    }
+
+    readBytesFromGCMemory(address, size, output + result_index);
+    result_index += size;
+    address += read_array_op->stride;
+  }
+
+  output[0] = 1;
+
+  return result_index;
+}
+
 int processMemoryOperation(SocketOperation *socket_op, u8* output) {
   switch(socket_op->header.type) {
     case 0:
       return processRequestVersion((struct RequestVersionOperation*) socket_op, output);
     case 1:
       return processBulkMemoryCommands((struct BulkMemoryOperation*)socket_op, output);
+    case 2:
+      return processArrayOperation((struct ReadArrayOperation*)socket_op, output);
     default:
       return 0;
   }
