@@ -9,7 +9,7 @@
 
 #define CHECK_INPUT(input) if ((input) > MAX_INPUT_BYTES) { output[0] = 0xFF; return 1; }
 
-int processReadCommands(MemoryOperation *memory_op, u8* output);
+int processBulkMemoryCommands(BulkMemoryOperation *bulk_memory_op, u8* output);
 
 u32 get32FromBuffer(u8* buffer, int *index) {
   int i = *index;
@@ -32,20 +32,20 @@ void write32ToBuffer(u8* output, u32 value, int *index) {
   output[i + 3] = (u8)((value) & 0xFF);
 }
 
-int processReadCommands(MemoryOperation *memory_op, u8* output) {
+int processBulkMemoryCommands(BulkMemoryOperation *bulk_memory_op, u8* output) {
   u32 addresses[MAX_ABSOLUTE_ADDRESSES];
   int i, result_index = 0, input_index = 0;
 
-  for (i = 0; i < memory_op->absolute_addresses_count && i < MAX_ABSOLUTE_ADDRESSES; ++i) {
-    addresses[i] = get32FromBuffer(memory_op->data, &input_index);
+  for (i = 0; i < bulk_memory_op->absolute_addresses_count && i < MAX_ABSOLUTE_ADDRESSES; ++i) {
+    addresses[i] = get32FromBuffer(bulk_memory_op->data, &input_index);
   }
 
   // Special case 0 ops, since it'd break the num_op_success_bytes calculation
-  if (memory_op->operations_count == 0) {
+  if (bulk_memory_op->operations_count == 0) {
     return 0;
   }
 
-  int num_op_success_bytes = 1 + (memory_op->operations_count - 1) / 8;
+  int num_op_success_bytes = 1 + (bulk_memory_op->operations_count - 1) / 8;
   for (i = 0; i < num_op_success_bytes; ++i) {
     // initialize these with 0, since we fill these incrementally
     output[i] = 0;
@@ -53,26 +53,26 @@ int processReadCommands(MemoryOperation *memory_op, u8* output) {
   // Skip the bytes reserved for informing valid addresses
   result_index += num_op_success_bytes;
 
-  for (i = 0; i < memory_op->operations_count; ++i) {
+  for (i = 0; i < bulk_memory_op->operations_count; ++i) {
     CHECK_INPUT(input_index)
-    struct OperationHeader *op = (struct OperationHeader *)&memory_op->data[input_index++];
+    struct MemoryOperationHeader *op_header = (struct MemoryOperationHeader *)&bulk_memory_op->data[input_index++];
 
-    u8 addr_index = op->address_index;
+    u8 addr_index = op_header->address_index;
     u32 addr = 0;
-    if (addr_index < memory_op->absolute_addresses_count) {
+    if (addr_index < bulk_memory_op->absolute_addresses_count) {
       addr = addresses[addr_index];
     }
 
     //dbgprintf("[Net] [processReadCommands] %d - Address: %x - Index: %d - is_word: %d - has_offset: %d - has_read: %d - has_write: %d\r\n", i, addr, addr_index, op->is_word, op->has_offset, op->has_read, op->has_write);
 
     u8 byte_count = 4;
-    if (!op->is_word) {
-      byte_count = memory_op->data[input_index++];
+    if (!op_header->is_word) {
+      byte_count = bulk_memory_op->data[input_index++];
     }
 
-    if (op->has_offset) {
+    if (op_header->has_offset) {
       CHECK_INPUT(input_index + 2)
-      s32 offset = (s32)((s16) get16FromBuffer(memory_op->data, &input_index));
+      s32 offset = (s32)((s16) get16FromBuffer(bulk_memory_op->data, &input_index));
       // Pointer addresses are always 32bit aligned (?), so if they aren't, quit out
       if ((addr & 3) != 0) {
         return 0;
@@ -87,7 +87,7 @@ int processReadCommands(MemoryOperation *memory_op, u8* output) {
     }
     bool is_valid_addr = VALID_PTR(addr);
 
-    if (op->has_read && is_valid_addr) {
+    if (op_header->has_read && is_valid_addr) {
       if (result_index + byte_count > MAX_OUTPUT_BYTES) {
         return 0;
       }
@@ -96,10 +96,10 @@ int processReadCommands(MemoryOperation *memory_op, u8* output) {
       result_index += byte_count;
     }
 
-    if (op->has_write) {
+    if (op_header->has_write) {
       CHECK_INPUT(input_index + byte_count)
       if (is_valid_addr) {
-        writeBytesToGCMemory(addr, byte_count, &memory_op->data[input_index]);
+        writeBytesToGCMemory(addr, byte_count, &bulk_memory_op->data[input_index]);
       }
       input_index += byte_count;
     }
@@ -109,7 +109,7 @@ int processReadCommands(MemoryOperation *memory_op, u8* output) {
   return result_index;
 }
 
-int processRequestVersion(MemoryOperation *memory_op, u8* output) {
+int processRequestVersion(RequestVersionOperation *request_version_op, u8* output) {
   int result_index = 0;
   write32ToBuffer(output, API_VERSION, &result_index);
   write32ToBuffer(output, MAX_INPUT_BYTES, &result_index);
@@ -118,12 +118,12 @@ int processRequestVersion(MemoryOperation *memory_op, u8* output) {
   return result_index;
 }
 
-int processMemoryOperation(MemoryOperation *memory_op, u8* output) {
-  switch(memory_op->type) {
+int processMemoryOperation(SocketOperation *socket_op, u8* output) {
+  switch(socket_op->header.type) {
     case 0:
-      return processReadCommands(memory_op, output);
+      return processRequestVersion((struct RequestVersionOperation*) socket_op, output);
     case 1:
-      return processRequestVersion(memory_op, output);
+      return processBulkMemoryCommands((struct BulkMemoryOperation*)socket_op, output);
     default:
       return 0;
   }

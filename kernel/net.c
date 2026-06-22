@@ -26,15 +26,15 @@ struct setsockopt_params {
     u8 optval[20];
 };
 
-typedef enum NetSocketOperation {
+typedef enum NetSocketState {
   NET_CLOSE,
   NET_ACCEPT,
   NET_RECEIVE,
   NET_SEND
-} NetSocketOperation;
+} NetSocketState;
 const char* NetSocketOperationStrings[] =
 {
-	"Close",
+  "Close",
   "Accept",
   "Receive",
   "Send",
@@ -44,11 +44,11 @@ const char* NetSocketOperationStrings[] =
 
 typedef struct NetSocketData {
   bool busy;
-  NetSocketOperation operation;
+  NetSocketState state;
   int socket;
   struct ipcmessage ipc_msg;
   struct sendto_params send_params;
-  MemoryOperation memory_op;
+  SocketOperation operation;
   u8 output_buffer[MAX_OUTPUT_BYTES];
   ioctlv ctlv[3];
 
@@ -91,7 +91,7 @@ void NetInit() {
   {
     NetSocketData* data = net_socket_data[i] = (struct NetSocketData *) heap_alloc_aligned(netHeap, sizeof(struct NetSocketData), 32);
     data->busy = false;
-    data->operation = NET_ACCEPT;
+    data->state = NET_ACCEPT;
     data->socket = -1;
     data->ipc_msg.seek.origin = i;
   }
@@ -197,34 +197,34 @@ u32 NetThread(void *arg) {
     //dbgprintf("[NetThread] [Sock %d] Got result %d\r\n", i, res);
     NetSocketData* data = net_socket_data[i];
 
-    NetSocketOperation new_op;
-    switch(data->operation) {
+    NetSocketState new_state;
+    switch(data->state) {
       case NET_ACCEPT: {
         net_has_active_accept = false;
         data->socket = res;
-        new_op = NET_RECEIVE;
+        new_state = NET_RECEIVE;
         break;
       }
       case NET_RECEIVE: {
         if (res < MINIMUM_MESSAGE_SIZE) {
-          new_op = NET_CLOSE;
+          new_state = NET_CLOSE;
         } else {
-          sync_after_write(&data->memory_op, res);
-          new_op = NET_SEND;
+          sync_after_write(&data->operation, res);
+          new_state = NET_SEND;
         }
         break;
       }
       case NET_SEND: {
-        if (res < 0 || !data->memory_op.keep_alive) {
-          new_op = NET_CLOSE;
+        if (res < 0 || !data->operation.header.keep_alive) {
+          new_state = NET_CLOSE;
         } else {
-          new_op = NET_RECEIVE;
+          new_state = NET_RECEIVE;
         }
         break;
       }
       case NET_CLOSE: {
         data->socket = -1;
-        new_op = NET_ACCEPT;
+        new_state = NET_ACCEPT;
         break;
       }
       default: {
@@ -232,7 +232,7 @@ u32 NetThread(void *arg) {
       }
     }
     data->busy = false;
-    data->operation = new_op;
+    data->state = new_state;
   }
   return 0;
 }
@@ -244,13 +244,13 @@ void NetUpdate()
   for (i = 0; i < MAX_NET_SOCKETS; ++i)
   {
     NetSocketData* data = net_socket_data[i];
-    if (data->busy || (data->operation == NET_ACCEPT && net_has_active_accept)) {
+    if (data->busy || (data->state == NET_ACCEPT && net_has_active_accept)) {
       continue;
     }
-    NetSocketOperation current_op = data->operation;
-    dbgprintf("[Net] [Sock %d] Will execute %s; Last result: %d\r\n", i, NetSocketOperationStrings[current_op], data->ipc_msg.result);
+    NetSocketState current_state = data->state;
+    dbgprintf("[Net] [Sock %d] Will execute %s; Last result: %d\r\n", i, NetSocketOperationStrings[current_state], data->ipc_msg.result);
     data->busy = true;
-    switch(current_op) {
+    switch(current_state) {
       case NET_ACCEPT: {
         if (net_has_active_accept) {
           continue;
@@ -274,7 +274,7 @@ void NetUpdate()
 
         data->ctlv[0].data = &data->send_params;  // for just the first 8 bytes
         data->ctlv[0].len = 8;
-        data->ctlv[1].data = &data->memory_op;
+        data->ctlv[1].data = &data->operation;
         data->ctlv[1].len = sizeof(MemoryOperation);
         data->ctlv[2].data = NULL;
         data->ctlv[2].len = 0;
@@ -283,7 +283,7 @@ void NetUpdate()
         break;
       }
       case NET_SEND: {
-        int outputBytes = processMemoryOperation(&data->memory_op, data->output_buffer);
+        int outputBytes = processMemoryOperation(&data->operation, data->output_buffer);
 
         //SOSendTo preparation
         memset(&data->send_params, 0, sizeof(struct sendto_params));
@@ -308,6 +308,6 @@ void NetUpdate()
       default:
         continue;
     }
-    dbgprintf("[Net] [Sock %d] Received %d after performing %s\r\n", i, result, NetSocketOperationStrings[current_op]);
+    dbgprintf("[Net] [Sock %d] Received %d after performing %s\r\n", i, result, NetSocketOperationStrings[current_state]);
   }
 }
