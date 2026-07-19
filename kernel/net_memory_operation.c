@@ -146,7 +146,7 @@ int processArrayOperation(ReadArrayOperation *read_array_op, u8* output) {
   return result_index;
 }
 
-int processMemoryOperation(SocketOperation *socket_op, u8* output) {
+int processSocketOperation(SocketOperation *socket_op, u8* output) {
   switch(socket_op->header.type) {
     case 0:
       return processRequestVersion((struct RequestVersionOperation*) socket_op, output);

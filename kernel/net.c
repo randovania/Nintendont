@@ -278,7 +278,7 @@ void NetUpdate()
         data->ctlv[0].data = &data->send_params;  // for just the first 8 bytes
         data->ctlv[0].len = 8;
         data->ctlv[1].data = &data->operation;
-        data->ctlv[1].len = sizeof(MemoryOperation);
+        data->ctlv[1].len = sizeof(SocketOperation);
         data->ctlv[2].data = NULL;
         data->ctlv[2].len = 0;
 
@@ -286,7 +286,7 @@ void NetUpdate()
         break;
       }
       case NET_SEND: {
-        int outputBytes = processMemoryOperation(&data->operation, data->output_buffer);
+        int outputBytes = processSocketOperation(&data->operation, data->output_buffer);
 
         //SOSendTo preparation
         memset(&data->send_params, 0, sizeof(struct sendto_params));

@@ -62,7 +62,7 @@ typedef struct ReadArrayOperation {
 } ReadArrayOperation;
 #pragma pack(pop)
 
-int processMemoryOperation(SocketOperation *socket_op, u8* output);
+int processSocketOperation(SocketOperation *socket_op, u8* output);
 u32 read32FromGCMemory(u32 addr);
 void write32ToGCMemory(u32 addr, u32 value);
 void readBytesFromGCMemory(u32 addr, int byte_count, u8* output);
