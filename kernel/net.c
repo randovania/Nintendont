@@ -97,11 +97,8 @@ void NetInit() {
   }
 
   // Open the /dev resource
-	char *soDev = "/dev/net/ip/top";
-	void *name = heap_alloc_aligned(netHeap, 32, 32);
-	memcpy(name, soDev, 32);
+	char *name = "/dev/net/ip/top";
 	soFd = IOS_Open(name, 0);	
-  heap_free(netHeap, name);
   dbgprintf("[Net] IOS_Open: %d\r\n", soFd);
 
   //SOStartup
