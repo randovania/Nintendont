@@ -86,11 +86,6 @@ void NetInit() {
   net_queue_heap = (u8*)heap_alloc_aligned(netHeap, 0x200, 32);
 	net_message_queue = mqueue_create(net_queue_heap, MAX_NET_SOCKETS);
 
-  // if (!ConfigGetConfig(NIN_CFG_PRIME_DUMP)) {
-  //   netStart = 0;
-  //   return 0;
-  // }
-
   for (i = 0; i < MAX_NET_SOCKETS; ++i)
   {
     NetSocketData* data = net_socket_data[i] = (struct NetSocketData *) heap_alloc_aligned(netHeap, sizeof(struct NetSocketData), 32);
@@ -108,14 +103,6 @@ void NetInit() {
   //SOStartup. Should always return 0.
   result = IOS_Ioctl(soFd, IOCTL_SO_STARTUP, 0, 0, 0, 0);
   dbgprintf("[Net] SOStartup: %d\r\n", result);
-
-  // //SOGetHostId
-  // int ip = 0;
-  // do {
-  //   mdelay(500);
-  //   ip = IOS_Ioctl(soFd, IOCTL_SO_GETHOSTID, 0, 0, 0, 0);
-  //   dbgprintf("[Net] Attempting to get IP: %x\r\n", ip);
-  // } while (ip == 0);
 
   //SOSocket. Can theoretically return error codes, but shouldn't.
   unsigned int *params = (unsigned int *) heap_alloc_aligned(netHeap, 12, 32);
@@ -191,7 +178,7 @@ void NetShutdown() {
 	netHeap = -1;
 }
 
-u32 NetThread(void *arg) {
+u32 NetThread(__attribute__ ((unused)) void *arg) {
 	struct ipcmessage *msg = NULL;
 	while(soFd != -1)
 	{

@@ -109,7 +109,7 @@ int processBulkMemoryCommands(BulkMemoryOperation *bulk_memory_op, u8* output) {
   return result_index;
 }
 
-int processRequestVersion(RequestVersionOperation *request_version_op, u8* output) {
+int processRequestVersion(__attribute__ ((unused)) RequestVersionOperation *request_version_op, u8* output) {
   int result_index = 0;
   write32ToBuffer(output, API_VERSION, &result_index);
   write32ToBuffer(output, MAX_INPUT_BYTES, &result_index);
