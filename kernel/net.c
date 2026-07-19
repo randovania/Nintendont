@@ -241,6 +241,12 @@ void NetUpdate()
 {
   int i, result;
 
+  if (soFd == -1 || mainSocket == -1 || netHeap == -1) {
+    dbgprintf("[Net] NetUpdate called before NetInit\r\n");
+    return;
+  }
+
+
   for (i = 0; i < MAX_NET_SOCKETS; ++i)
   {
     NetSocketData* data = net_socket_data[i];
