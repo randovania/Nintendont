@@ -68,6 +68,10 @@ static int mainSocket = -1;
 static bool net_has_active_accept = false;
 static NetSocketData* net_socket_data[MAX_NET_SOCKETS];
 
+void PrintNegativeResultWarn(int result) {
+    dbgprintf("[Net] WARNING: Negative result!!!");
+}
+
 void NetInit() {
   int i, result;
 
@@ -101,7 +105,7 @@ void NetInit() {
 	soFd = IOS_Open(name, 0);	
   dbgprintf("[Net] IOS_Open: %d\r\n", soFd);
 
-  //SOStartup
+  //SOStartup. Should always return 0.
   result = IOS_Ioctl(soFd, IOCTL_SO_STARTUP, 0, 0, 0, 0);
   dbgprintf("[Net] SOStartup: %d\r\n", result);
 
@@ -113,15 +117,18 @@ void NetInit() {
   //   dbgprintf("[Net] Attempting to get IP: %x\r\n", ip);
   // } while (ip == 0);
 
-  //SOSocket
+  //SOSocket. Can theoretically return error codes, but shouldn't.
   unsigned int *params = (unsigned int *) heap_alloc_aligned(netHeap, 12, 32);
   params[0] = AF_INET;
   params[1] = SOCK_STREAM;
   params[2] = IPPROTO_IP;
   mainSocket = IOS_Ioctl(soFd, IOCTL_SO_SOCKET, params, 12, 0, 0);
   dbgprintf("[Net] SOSocket: %d\r\n", mainSocket);
+  if (mainSocket < 0) {
+    PrintNegativeResultWarn(mainSocket);
+  }
 
-  //SOBind
+  //SOBind. Should always return 0.
   struct bind_params *bParams = (struct bind_params *) heap_alloc_aligned(netHeap, sizeof(struct bind_params), 32);
   memset(bParams, 0, sizeof(struct bind_params));
   bParams->socket = mainSocket;
@@ -134,11 +141,14 @@ void NetInit() {
   dbgprintf("[Net] SOBind: %d\r\n", result);
   heap_free(netHeap, bParams);
 
-  //SOListen
+  //SOListen. Can return negative error codes, but shouldn't.
   params[0] = mainSocket;
   params[1] = 1;
   result = IOS_Ioctl(soFd, IOCTL_SO_LISTEN, params, 8, 0, 0);
   dbgprintf("[Net] SOListen: %d\r\n", result);
+  if (result < 0) {
+    PrintNegativeResultWarn(result);
+  }
   heap_free(netHeap, params);
 
 #ifdef USE_CUSTOM_THREAD_STACK
@@ -188,7 +198,7 @@ u32 NetThread(void *arg) {
     //dbgprintf("[NetThread] Waiting for a message in queue\r\n");
 		mqueue_recv(net_message_queue, &msg, 0);
 		int i = msg->seek.origin;
-		int res = msg->result;
+		int res = msg->result;    // TODO: can this be negative / have an error code? 
 		mqueue_ack(msg, 0);
     
     //dbgprintf("[NetThread] [Sock %d] Got result %d\r\n", i, res);
@@ -265,6 +275,7 @@ void NetUpdate()
         data->send_params.addr.len = 8;
         data->send_params.addr.family = AF_INET;
 
+        // SOAccept should always return 0.
         result = IOS_IoctlAsync(soFd, IOCTL_SO_ACCEPT, &mainSocket, 4, &data->send_params.addr, 8, net_message_queue, &data->ipc_msg);
         break;
       }
@@ -282,6 +293,7 @@ void NetUpdate()
         data->ctlv[2].data = NULL;
         data->ctlv[2].len = 0;
 
+        // SORecVFrom should always return 0.
         result = IOS_IoctlvAsync(soFd, IOCTLV_SO_RECVFROM, 1, 2, data->ctlv, net_message_queue, &data->ipc_msg);
         break;
       }
@@ -301,11 +313,17 @@ void NetUpdate()
         data->ctlv[2].data = NULL;
         data->ctlv[2].len = 0;
 
+        // SOSendTo should always return 0.
         result = IOS_IoctlvAsync(soFd, IOCTLV_SO_SENDTO, 2, 0, data->ctlv, net_message_queue, &data->ipc_msg);
         break;
       }
       case NET_CLOSE: {
+        // SOClose can return -8 (EBADF), but this shouldn't ever happen.
         result = IOS_IoctlAsync(soFd, IOCTL_SO_CLOSE, &data->socket, 4, NULL, 0, net_message_queue, &data->ipc_msg);
+        dbgprintf("[Net] NetUpdate socket %d had state NET_CLOSE and result %d\r\n", i, result);
+        if (result < 0) {
+          PrintNegativeResultWarn(result);
+        }
         break;
       }
       default:
