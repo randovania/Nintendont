@@ -204,6 +204,11 @@ u32 NetThread(void *arg) {
     //dbgprintf("[NetThread] [Sock %d] Got result %d\r\n", i, res);
     NetSocketData* data = net_socket_data[i];
 
+    if (res < 0){
+      dbgprintf("[NetThread] [Sock %d] Got negative result %d with state %d\r\n", i, res, data->state);
+      PrintNegativeResultWarn();
+    }
+
     NetSocketState new_state;
     switch(data->state) {
       case NET_ACCEPT: {
