@@ -40,8 +40,6 @@ const char* NetSocketOperationStrings[] =
   "Send",
 };
 
-#define NET_BUFFER_SIZE 128
-
 typedef struct NetSocketData {
   bool busy;
   NetSocketState state;
@@ -68,7 +66,7 @@ static int mainSocket = -1;
 static bool net_has_active_accept = false;
 static NetSocketData* net_socket_data[MAX_NET_SOCKETS];
 
-void PrintNegativeResultWarn(int result) {
+void PrintNegativeResultWarn() {
     dbgprintf("[Net] WARNING: Negative result!!!");
 }
 
@@ -112,7 +110,7 @@ void NetInit() {
   mainSocket = IOS_Ioctl(soFd, IOCTL_SO_SOCKET, params, 12, 0, 0);
   dbgprintf("[Net] SOSocket: %d\r\n", mainSocket);
   if (mainSocket < 0) {
-    PrintNegativeResultWarn(mainSocket);
+    PrintNegativeResultWarn();
   }
 
   //SOBind. Should always return 0.
@@ -134,7 +132,7 @@ void NetInit() {
   result = IOS_Ioctl(soFd, IOCTL_SO_LISTEN, params, 8, 0, 0);
   dbgprintf("[Net] SOListen: %d\r\n", result);
   if (result < 0) {
-    PrintNegativeResultWarn(result);
+    PrintNegativeResultWarn();
   }
   heap_free(netHeap, params);
 
@@ -309,7 +307,7 @@ void NetUpdate()
         result = IOS_IoctlAsync(soFd, IOCTL_SO_CLOSE, &data->socket, 4, NULL, 0, net_message_queue, &data->ipc_msg);
         dbgprintf("[Net] NetUpdate socket %d had state NET_CLOSE and result %d\r\n", i, result);
         if (result < 0) {
-          PrintNegativeResultWarn(result);
+          PrintNegativeResultWarn();
         }
         break;
       }

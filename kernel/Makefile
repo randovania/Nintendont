@@ -23,7 +23,7 @@ else
 endif
 
 CFLAGS	:= -mbig-endian -O3 -std=gnu89 -g -I. \
-	   -Wall -Wextra -fanalyzer -Wnull-dereference \
+	   -Wall -Wextra -fanalyzer -Wnull-dereference -Wunused-macros \
 	   -mcpu=arm926ej-s -msoft-float -mfloat-abi=soft \
 	   -fdata-sections -ffunction-sections -fno-builtin-toupper -fno-builtin-memcpy \
 	   -fno-builtin-memset -fno-builtin-memcmp -fno-builtin-malloc -fno-builtin-free
