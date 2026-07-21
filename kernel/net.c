@@ -15,6 +15,8 @@
 
 #define USE_CUSTOM_HEAP
 #define USE_CUSTOM_THREAD_STACK
+#define NINTENDONT_PORT 43673
+#define MAX_NET_SOCKETS 4
 
 ////////
 
@@ -52,7 +54,7 @@ typedef struct NetSocketData {
 
 } NetSocketData;
 
-#define MAX_NET_SOCKETS 4
+
 extern char __net_stack_addr, __net_stack_size;
 
 static u32 net_thread_id = 0;
@@ -120,7 +122,7 @@ void NetInit() {
   bParams->has_name = 1;
   bParams->addr.len = 8;
   bParams->addr.family = AF_INET;
-  bParams->addr.port = 43673;
+  bParams->addr.port = NINTENDONT_PORT;
   bParams->addr.name = INADDR_ANY;
   result = IOS_Ioctl(soFd, IOCTL_SO_BIND, bParams, sizeof(struct bind_params), 0, 0);
   dbgprintf("[Net] SOBind: %d\r\n", result);
