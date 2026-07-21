@@ -40,8 +40,6 @@ const char* NetSocketOperationStrings[] =
   "Send",
 };
 
-#define NET_BUFFER_SIZE 128
-
 typedef struct NetSocketData {
   bool busy;
   NetSocketState state;
@@ -68,7 +66,7 @@ static int mainSocket = -1;
 static bool net_has_active_accept = false;
 static NetSocketData* net_socket_data[MAX_NET_SOCKETS];
 
-void PrintNegativeResultWarn(int result) {
+void PrintNegativeResultWarn() {
     dbgprintf("[Net] WARNING: Negative result!!!");
 }
 
@@ -85,11 +83,6 @@ void NetInit() {
 
   net_queue_heap = (u8*)heap_alloc_aligned(netHeap, 0x200, 32);
 	net_message_queue = mqueue_create(net_queue_heap, MAX_NET_SOCKETS);
-
-  // if (!ConfigGetConfig(NIN_CFG_PRIME_DUMP)) {
-  //   netStart = 0;
-  //   return 0;
-  // }
 
   for (i = 0; i < MAX_NET_SOCKETS; ++i)
   {
@@ -109,14 +102,6 @@ void NetInit() {
   result = IOS_Ioctl(soFd, IOCTL_SO_STARTUP, 0, 0, 0, 0);
   dbgprintf("[Net] SOStartup: %d\r\n", result);
 
-  // //SOGetHostId
-  // int ip = 0;
-  // do {
-  //   mdelay(500);
-  //   ip = IOS_Ioctl(soFd, IOCTL_SO_GETHOSTID, 0, 0, 0, 0);
-  //   dbgprintf("[Net] Attempting to get IP: %x\r\n", ip);
-  // } while (ip == 0);
-
   //SOSocket. Can theoretically return error codes, but shouldn't.
   unsigned int *params = (unsigned int *) heap_alloc_aligned(netHeap, 12, 32);
   params[0] = AF_INET;
@@ -125,7 +110,7 @@ void NetInit() {
   mainSocket = IOS_Ioctl(soFd, IOCTL_SO_SOCKET, params, 12, 0, 0);
   dbgprintf("[Net] SOSocket: %d\r\n", mainSocket);
   if (mainSocket < 0) {
-    PrintNegativeResultWarn(mainSocket);
+    PrintNegativeResultWarn();
   }
 
   //SOBind. Should always return 0.
@@ -147,7 +132,7 @@ void NetInit() {
   result = IOS_Ioctl(soFd, IOCTL_SO_LISTEN, params, 8, 0, 0);
   dbgprintf("[Net] SOListen: %d\r\n", result);
   if (result < 0) {
-    PrintNegativeResultWarn(result);
+    PrintNegativeResultWarn();
   }
   heap_free(netHeap, params);
 
@@ -191,7 +176,7 @@ void NetShutdown() {
 	netHeap = -1;
 }
 
-u32 NetThread(void *arg) {
+u32 NetThread(__attribute__ ((unused)) void *arg) {
 	struct ipcmessage *msg = NULL;
 	while(soFd != -1)
 	{
@@ -322,7 +307,7 @@ void NetUpdate()
         result = IOS_IoctlAsync(soFd, IOCTL_SO_CLOSE, &data->socket, 4, NULL, 0, net_message_queue, &data->ipc_msg);
         dbgprintf("[Net] NetUpdate socket %d had state NET_CLOSE and result %d\r\n", i, result);
         if (result < 0) {
-          PrintNegativeResultWarn(result);
+          PrintNegativeResultWarn();
         }
         break;
       }
