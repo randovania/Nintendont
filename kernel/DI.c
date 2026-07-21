@@ -38,7 +38,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include "FST.h"
 #include "HID.h"
 #include "BT.h"
-#include "net.h"
+#include "network/net.h"
 #include "usbstorage.h"
 
 #include "ff_utf8.h"
