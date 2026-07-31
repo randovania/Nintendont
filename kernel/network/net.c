@@ -71,7 +71,16 @@ void PrintNegativeResultWarn() {
 }
 
 void NetInit() {
+  // Initializes important lifelong variables.
+
   int i, result;
+
+  dbgprintf("[Net] NetInit\r\n");
+
+  // Open the /dev resource
+  char* name = "/dev/net/ip/top";
+  soFd = IOS_Open(name, 0);
+  dbgprintf("[Net] IOS_Open: %d\r\n", soFd);
 
 #ifdef USE_CUSTOM_HEAP
   // stealing the 128KB heap from sock.c
@@ -91,12 +100,33 @@ void NetInit() {
     data->state = NET_ACCEPT;
     data->socket = -1;
     data->ipc_msg.seek.origin = i;
+    data->ipc_msg.result = 255; // AFAIK wii result values can be from -78 to 78, so in order to not conflict
+                                // with anything i chose this out of range one.
   }
 
-  // Open the /dev resource
-  char* name = "/dev/net/ip/top";
-  soFd = IOS_Open(name, 0);
-  dbgprintf("[Net] IOS_Open: %d\r\n", soFd);
+  #ifdef USE_CUSTOM_THREAD_STACK
+  // from Heap
+  u32 net_thread_size = 0x400;
+  net_thread_stack = (u32*)heap_alloc_aligned(netHeap, net_thread_size, 32);
+#else
+  // from kernel.ld
+  u32 net_thread_size = ((u32)(&__net_stack_size));
+  net_thread_stack = ((u32*)&__net_stack_addr);
+#endif
+
+  net_thread_id = thread_create(NetThread, NULL, net_thread_stack, net_thread_size / sizeof(u32), 0x78, 1);
+  dbgprintf("[Net] thread_create: %d\r\n", net_thread_id);
+
+  result = thread_continue(net_thread_id);
+  dbgprintf("[Net] thread_continue: %d\r\n", result);
+}
+
+void NetConnect() {
+  // Connects to the network by preparing the main socket for accepting connections.
+
+  int result;
+
+  dbgprintf("[Net] NetConnect\r\n");
 
   // SOStartup. Should always return 0.
   result = IOS_Ioctl(soFd, IOCTL_SO_STARTUP, 0, 0, 0, 0);
@@ -136,25 +166,11 @@ void NetInit() {
     PrintNegativeResultWarn();
   }
   heap_free(netHeap, params);
-
-#ifdef USE_CUSTOM_THREAD_STACK
-  // from Heap
-  u32 net_thread_size = 0x400;
-  net_thread_stack = (u32*)heap_alloc_aligned(netHeap, net_thread_size, 32);
-#else
-  // from kernel.ld
-  u32 net_thread_size = ((u32)(&__net_stack_size));
-  net_thread_stack = ((u32*)&__net_stack_addr);
-#endif
-
-  net_thread_id = thread_create(NetThread, NULL, net_thread_stack, net_thread_size / sizeof(u32), 0x78, 1);
-  dbgprintf("[Net] thread_create: %d\r\n", net_thread_id);
-
-  result = thread_continue(net_thread_id);
-  dbgprintf("[Net] thread_continue: %d\r\n", result);
 }
 
 void NetShutdown() {
+  // Tears everything down.
+
   int i;
 
   dbgprintf("[Net] NetShutdown\r\n");
