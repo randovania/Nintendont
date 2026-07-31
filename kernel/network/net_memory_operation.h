@@ -35,3 +35,36 @@ typedef struct BulkMemoryOperation {
   // u32 absolute_addresses[absolute_addresses_count];
   // MemoryOperation operations[operations_count];
 } BulkMemoryOperation;
+
+typedef struct MemoryOperationHeader {
+  bool has_read    : 1; // TODO: combine read and write into one bit
+  bool has_write   : 1;
+  bool is_word     : 1;
+  bool has_offset  : 1;
+  u8 address_index : 4;
+} MemoryOperationHeader;
+
+typedef struct MemoryOperation {
+  MemoryOperationHeader header;
+  u8* data;
+  // u8 byte_count;  # if !header.is_word
+  // u16 offset_count; # if header.has_offset
+  // u8 write_data[byte_count or 4]; # if header.has_write
+} MemoryOperation;
+
+typedef struct ReadArrayOperation {
+  SocketOperationHeader header; // type is always 2
+  u32 address;
+  u16 count;
+  u16 size;
+  u16 stride;
+} ReadArrayOperation;
+#pragma pack(pop)
+
+int processSocketOperation(SocketOperation* socket_op, u8* output);
+u32 read32FromGCMemory(u32 addr);
+void write32ToGCMemory(u32 addr, u32 value);
+void readBytesFromGCMemory(u32 addr, int byte_count, u8* output);
+void writeBytesToGCMemory(u32 addr, int byte_count, u8* input);
+
+#endif //_NET_MEMORY_OPERATION_H
