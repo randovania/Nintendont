@@ -5,6 +5,6 @@
 void NetInit();
 void NetUpdate();
 void NetShutdown();
-u32 NetThread(void *arg);
+u32 NetThread(void* arg);
 
 #endif

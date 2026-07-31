@@ -7,23 +7,27 @@
 #define GET_PTR(value) (P2C(value))
 #define VALID_PTR(value) (value >= 0x80000000 && value < 0x82400000)
 
-#define CHECK_INPUT(input) if ((input) > MAX_INPUT_BYTES) { output[0] = 0xFF; return 1; }
+#define CHECK_INPUT(input)         \
+  if ((input) > MAX_INPUT_BYTES) { \
+    output[0] = 0xFF;              \
+    return 1;                      \
+  }
 
-int processBulkMemoryCommands(BulkMemoryOperation *bulk_memory_op, u8* output);
+int processBulkMemoryCommands(BulkMemoryOperation* bulk_memory_op, u8* output);
 
-u32 get32FromBuffer(u8* buffer, int *index) {
+u32 get32FromBuffer(u8* buffer, int* index) {
   int i = *index;
   *index = i + 4;
   return (buffer[i] << 24) + (buffer[i + 1] << 16) + (buffer[i + 2] << 8) + buffer[i + 3];
 }
 
-u16 get16FromBuffer(u8* buffer, int *index) {
+u16 get16FromBuffer(u8* buffer, int* index) {
   int i = *index;
   *index = i + 2;
   return (buffer[i + 0] << 8) + buffer[i + 1];
 }
 
-void write32ToBuffer(u8* output, u32 value, int *index) {
+void write32ToBuffer(u8* output, u32 value, int* index) {
   int i = *index;
   *index = i + 4;
   output[i + 0] = (u8)((value >> 24) & 0xFF);
@@ -32,7 +36,7 @@ void write32ToBuffer(u8* output, u32 value, int *index) {
   output[i + 3] = (u8)((value) & 0xFF);
 }
 
-int processBulkMemoryCommands(BulkMemoryOperation *bulk_memory_op, u8* output) {
+int processBulkMemoryCommands(BulkMemoryOperation* bulk_memory_op, u8* output) {
   u32 addresses[MAX_ABSOLUTE_ADDRESSES];
   int i, result_index = 0, input_index = 0;
 
@@ -55,7 +59,8 @@ int processBulkMemoryCommands(BulkMemoryOperation *bulk_memory_op, u8* output) {
 
   for (i = 0; i < bulk_memory_op->operations_count; ++i) {
     CHECK_INPUT(input_index)
-    struct MemoryOperationHeader *op_header = (struct MemoryOperationHeader *)&bulk_memory_op->data[input_index++];
+    struct MemoryOperationHeader* op_header =
+        (struct MemoryOperationHeader*)&bulk_memory_op->data[input_index++];
 
     u8 addr_index = op_header->address_index;
     u32 addr = 0;
@@ -63,7 +68,9 @@ int processBulkMemoryCommands(BulkMemoryOperation *bulk_memory_op, u8* output) {
       addr = addresses[addr_index];
     }
 
-    //dbgprintf("[Net] [processReadCommands] %d - Address: %x - Index: %d - is_word: %d - has_offset: %d - has_read: %d - has_write: %d\r\n", i, addr, addr_index, op->is_word, op->has_offset, op->has_read, op->has_write);
+    // dbgprintf("[Net] [processReadCommands] %d - Address: %x - Index: %d - is_word: %d - has_offset: %d -
+    // has_read: %d - has_write: %d\r\n", i, addr, addr_index, op->is_word, op->has_offset, op->has_read,
+    // op->has_write);
 
     u8 byte_count = 4;
     if (!op_header->is_word) {
@@ -72,12 +79,12 @@ int processBulkMemoryCommands(BulkMemoryOperation *bulk_memory_op, u8* output) {
 
     if (op_header->has_offset) {
       CHECK_INPUT(input_index + 2)
-      s32 offset = (s32)((s16) get16FromBuffer(bulk_memory_op->data, &input_index));
+      s32 offset = (s32)((s16)get16FromBuffer(bulk_memory_op->data, &input_index));
       // Pointer addresses are always 32bit aligned (?), so if they aren't, quit out
       if ((addr & 3) != 0) {
         return 0;
       }
-      
+
       u32 pointer = read32FromGCMemory(addr);
       if (VALID_PTR(pointer)) {
         addr = (u32)((s32)pointer + offset);
@@ -109,7 +116,7 @@ int processBulkMemoryCommands(BulkMemoryOperation *bulk_memory_op, u8* output) {
   return result_index;
 }
 
-int processRequestVersion(__attribute__ ((unused)) RequestVersionOperation *request_version_op, u8* output) {
+int processRequestVersion(__attribute__((unused)) RequestVersionOperation* request_version_op, u8* output) {
   int result_index = 0;
   write32ToBuffer(output, API_VERSION, &result_index);
   write32ToBuffer(output, MAX_INPUT_BYTES, &result_index);
@@ -121,7 +128,7 @@ int processRequestVersion(__attribute__ ((unused)) RequestVersionOperation *requ
   return result_index;
 }
 
-int processArrayOperation(ReadArrayOperation *read_array_op, u8* output) {
+int processArrayOperation(ReadArrayOperation* read_array_op, u8* output) {
   // Iterates at address with a step of `stride` and reads `size` bytes `count` times.
   // First byte of output buffer indicates success if its 1 and failure if its 0.
   // Returns how many elements should be considered written to the output buffer.
@@ -146,16 +153,16 @@ int processArrayOperation(ReadArrayOperation *read_array_op, u8* output) {
   return result_index;
 }
 
-int processSocketOperation(SocketOperation *socket_op, u8* output) {
-  switch(socket_op->header.type) {
-    case 0:
-      return processRequestVersion((struct RequestVersionOperation*) socket_op, output);
-    case 1:
-      return processBulkMemoryCommands((struct BulkMemoryOperation*)socket_op, output);
-    case 2:
-      return processArrayOperation((struct ReadArrayOperation*)socket_op, output);
-    default:
-      return 0;
+int processSocketOperation(SocketOperation* socket_op, u8* output) {
+  switch (socket_op->header.type) {
+  case 0:
+    return processRequestVersion((struct RequestVersionOperation*)socket_op, output);
+  case 1:
+    return processBulkMemoryCommands((struct BulkMemoryOperation*)socket_op, output);
+  case 2:
+    return processArrayOperation((struct ReadArrayOperation*)socket_op, output);
+  default:
+    return 0;
   }
 }
 
@@ -174,7 +181,7 @@ void write32ToGCMemory(u32 addr, u32 value) {
 
 void readBytesFromGCMemory(u32 addr, int byte_count, u8* output) {
   int index = 0;
-  // Try doing 32bit reads. GCN will crash if addr isn't aligned for them. 
+  // Try doing 32bit reads. GCN will crash if addr isn't aligned for them.
   while ((byte_count >= 4) && (addr & 3) == 0) {
     u32 result = read32FromGCMemory(addr + index);
     write32ToBuffer(output, result, &index);
@@ -202,14 +209,15 @@ void updateAddressWithByteOps(u32 address, int initial_byte, int* bytes_left, u8
 
 void writeBytesToGCMemory(u32 addr, int byte_count, u8* input) {
   int input_index = 0, bytes_left = byte_count;
-  
+
   sync_before_read_align32((void*)(P2C(addr)), byte_count);
 
   // Start writing from the aligned version of addr
   u32 current_address = addr & (~3);
-  
+
   if (addr > current_address) {
-    // addr isn't aligned to 32-bit writes, so we need to ignore some of the most significant bytes of this 32-bit write
+    // addr isn't aligned to 32-bit writes, so we need to ignore some of the most significant bytes of this
+    // 32-bit write
     updateAddressWithByteOps(current_address, addr & 3, &bytes_left, input, &input_index);
     current_address += 4;
   }
