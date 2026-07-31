@@ -802,6 +802,7 @@ void DIUpdateRegisters( void )
 				#ifdef PATCHALL
 				BTInit();
 				NetInit();
+				NetConnect();
 				#endif
 				DIOK = 1;
 			} break;
