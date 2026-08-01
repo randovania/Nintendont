@@ -198,15 +198,27 @@ u32 NetThread(__attribute__((unused)) void* arg) {
     // dbgprintf("[NetThread] Waiting for a message in queue\r\n");
     mqueue_recv(net_message_queue, &msg, 0);
     int i = msg->seek.origin;
-    int res = msg->result; // TODO: can this be negative / have an error code?
+    // TODO: Handle some of connection related error codes: 
+    // -39 (ENetReset)
+    // probably -38 and -40 too (ENetUnreach and ENetDown)
+    // -13 to -15 probably as well (EConnAborted, EConnRefused, EConnReset)
+    // -56 (ENotConn)?? That shouldn't ever happen.
+    int res = msg->result; 
     mqueue_ack(msg, 0);
 
     // dbgprintf("[NetThread] [Sock %d] Got result %d\r\n", i, res);
     NetSocketData* data = net_socket_data[i];
 
+    dbgprintf("[Net] [Sock %d] [State %s] had result %d\r\n", i, NetSocketOperationStrings[data->state], res);
+
     NetSocketState new_state;
     switch (data->state) {
     case NET_ACCEPT: {
+      if (res < 0) {
+        // If an error occured, try it again.
+        new_state = NET_ACCEPT;
+        break;
+      }
       net_has_active_accept = false;
       data->socket = res;
       new_state = NET_RECEIVE;
@@ -230,6 +242,12 @@ u32 NetThread(__attribute__((unused)) void* arg) {
       break;
     }
     case NET_CLOSE: {
+      if (res < 0) {
+        // If an error occured, try it again.
+        new_state = NET_CLOSE;
+        break;
+      }
+
       data->socket = -1;
       new_state = NET_ACCEPT;
       break;
