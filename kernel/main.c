@@ -37,7 +37,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include "GCAM.h"
 #include "TRI.h"
 #include "Patch.h"
-#include "net.h"
+#include "network/net.h"
 #include "diskio.h"
 #include "usbstorage.h"
 #include "SDI.h"
