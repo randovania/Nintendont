@@ -18,6 +18,10 @@
 #define NINTENDONT_PORT 43673
 #define MAX_NET_SOCKETS 4
 
+// AFAIK wii result values can be from -78 to 78, so in order to not conflict
+// with anything i chose this out of range one.
+#define INITIAL_RESULT_VALUE 255
+
 ////////
 
 struct setsockopt_params {
@@ -100,11 +104,10 @@ void NetInit() {
     data->state = NET_ACCEPT;
     data->socket = -1;
     data->ipc_msg.seek.origin = i;
-    data->ipc_msg.result = 255; // AFAIK wii result values can be from -78 to 78, so in order to not conflict
-                                // with anything i chose this out of range one.
+    data->ipc_msg.result = INITIAL_RESULT_VALUE;
   }
 
-  #ifdef USE_CUSTOM_THREAD_STACK
+#ifdef USE_CUSTOM_THREAD_STACK
   // from Heap
   u32 net_thread_size = 0x400;
   net_thread_stack = (u32*)heap_alloc_aligned(netHeap, net_thread_size, 32);
@@ -168,6 +171,32 @@ void NetConnect() {
   heap_free(netHeap, params);
 }
 
+void NetDisconnect() {
+  // Disconnects from the main network socket.
+
+  int i, result;
+
+  dbgprintf("[Net] NetDisconnect\r\n");
+
+  unsigned int* params = (unsigned int*)heap_alloc_aligned(netHeap, 4, 32);
+  params[0] = mainSocket;
+  result = IOS_Ioctl(soFd, IOCTL_SO_CLOSE, params, 4, 0, 0);
+  dbgprintf("[Net] SOClose: %d\r\n", result);
+  heap_free(netHeap, params);
+
+  mainSocket = -1;
+
+  for (i = 0; i < MAX_NET_SOCKETS; ++i) {
+    NetSocketData* data = net_socket_data[i];
+    data->busy = false;
+    data->state = NET_ACCEPT;
+    data->socket = -1;
+    data->ipc_msg.seek.origin = i;
+    data->ipc_msg.result = INITIAL_RESULT_VALUE;
+  }
+  net_has_active_accept = false;
+}
+
 void NetShutdown() {
   // Tears everything down.
 
@@ -198,12 +227,7 @@ u32 NetThread(__attribute__((unused)) void* arg) {
     // dbgprintf("[NetThread] Waiting for a message in queue\r\n");
     mqueue_recv(net_message_queue, &msg, 0);
     int i = msg->seek.origin;
-    // TODO: Handle some of connection related error codes: 
-    // -39 (ENetReset)
-    // probably -38 and -40 too (ENetUnreach and ENetDown)
-    // -13 to -15 probably as well (EConnAborted, EConnRefused, EConnReset)
-    // -56 (ENotConn)?? That shouldn't ever happen.
-    int res = msg->result; 
+    int res = msg->result;
     mqueue_ack(msg, 0);
 
     // dbgprintf("[NetThread] [Sock %d] Got result %d\r\n", i, res);
@@ -211,14 +235,24 @@ u32 NetThread(__attribute__((unused)) void* arg) {
 
     dbgprintf("[Net] [Sock %d] [State %s] had result %d\r\n", i, NetSocketOperationStrings[data->state], res);
 
+    if (res < 0) {
+      // If an error occurs, just restart the whole connection. Relevant errors that can occur:
+      // -13 to -15 (EConnAborted, EConnRefused, EConnReset)
+      // -38 to -40 (ENetUnreach, ENetReset, ENetDown)
+      // -56 (ENotConn)?
+      NetDisconnect();
+      mdelay(1000);
+      NetConnect();
+      continue;
+    }
+
+    if (res == INITIAL_RESULT_VALUE) {
+      continue;
+    }
+
     NetSocketState new_state;
     switch (data->state) {
     case NET_ACCEPT: {
-      if (res < 0) {
-        // If an error occured, try it again.
-        new_state = NET_ACCEPT;
-        break;
-      }
       net_has_active_accept = false;
       data->socket = res;
       new_state = NET_RECEIVE;
@@ -234,7 +268,7 @@ u32 NetThread(__attribute__((unused)) void* arg) {
       break;
     }
     case NET_SEND: {
-      if (res < 0 || !data->operation.header.keep_alive) {
+      if (!data->operation.header.keep_alive) {
         new_state = NET_CLOSE;
       } else {
         new_state = NET_RECEIVE;
@@ -242,12 +276,6 @@ u32 NetThread(__attribute__((unused)) void* arg) {
       break;
     }
     case NET_CLOSE: {
-      if (res < 0) {
-        // If an error occured, try it again.
-        new_state = NET_CLOSE;
-        break;
-      }
-
       data->socket = -1;
       new_state = NET_ACCEPT;
       break;
@@ -265,8 +293,12 @@ u32 NetThread(__attribute__((unused)) void* arg) {
 void NetUpdate() {
   int i, result;
 
-  if (soFd == -1 || mainSocket == -1 || netHeap == -1) {
+  if (soFd == -1 || netHeap == -1) {
     dbgprintf("[Net] NetUpdate called before NetInit\r\n");
+    return;
+  }
+  if (mainSocket == -1) {
+    dbgprintf("[Net] NetUpdate called before NetConnect\r\n");
     return;
   }
 
