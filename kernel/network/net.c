@@ -230,10 +230,10 @@ u32 NetThread(__attribute__((unused)) void* arg) {
     int res = msg->result;
     mqueue_ack(msg, 0);
 
-    // dbgprintf("[NetThread] [Sock %d] Got result %d\r\n", i, res);
     NetSocketData* data = net_socket_data[i];
 
-    dbgprintf("[Net] [Sock %d] [State %s] had result %d\r\n", i, NetSocketOperationStrings[data->state], res);
+    dbgprintf("[NetThread] [Sock %d] [State %s] had result %d\r\n", i, NetSocketOperationStrings[data->state],
+              res);
 
     if (res < 0) {
       // If an error occurs, just restart the whole connection. Relevant errors that can occur:
@@ -308,7 +308,7 @@ void NetUpdate() {
       continue;
     }
     NetSocketState current_state = data->state;
-    dbgprintf("[Net] [Sock %d] Will execute %s; Last result: %d\r\n", i,
+    dbgprintf("[NetUpdate] [Sock %d] Will execute %s; Last result: %d\r\n", i,
               NetSocketOperationStrings[current_state], data->ipc_msg.result);
     data->busy = true;
     switch (current_state) {
@@ -331,7 +331,9 @@ void NetUpdate() {
     case NET_RECEIVE: {
 
       // SORecvFrom
+      // Clean up the data to avoid garbage from previous calls.
       memset(&data->send_params, 0, sizeof(struct sendto_params));
+      memset(&data->operation, 0, sizeof(SocketOperation));
       data->send_params.socket = data->socket;
       data->send_params.flags = 0;
 
@@ -370,7 +372,7 @@ void NetUpdate() {
       // SOClose can return -8 (EBADF), but this shouldn't ever happen.
       result =
           IOS_IoctlAsync(soFd, IOCTL_SO_CLOSE, &data->socket, 4, NULL, 0, net_message_queue, &data->ipc_msg);
-      dbgprintf("[Net] NetUpdate socket %d had state NET_CLOSE and result %d\r\n", i, result);
+      dbgprintf("[NetUpdate] NetUpdate socket %d had state NET_CLOSE and result %d\r\n", i, result);
       if (result < 0) {
         PrintNegativeResultWarn();
       }
