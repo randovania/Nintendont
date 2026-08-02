@@ -9,11 +9,14 @@ __phy_stack_addr = 0x12FE0000 + __stack_size;
 __di_stack_size = 0x1000;
 __di_stack_addr = __phy_stack_addr + __di_stack_size;
 
-__net_stack_size = 0x1000;
-__net_stack_addr = __di_stack_addr + __net_stack_size;
+__net_stack_size_1 = 0x500;
+__net_stack_addr_1 = __di_stack_addr + __net_stack_size_1;
+
+__net_stack_size_2 = 0x500;
+__net_stack_addr_2 = __net_stack_size_1 + __net_stack_size_2;
 
 __realdi_stack_size = 0x400;
-__realdi_stack_addr = __net_stack_addr + __realdi_stack_size;
+__realdi_stack_addr = __net_stack_addr_2 + __realdi_stack_size;
 
 __hid_stack_size = 0x400;
 __hid_stack_addr = __realdi_stack_addr + __hid_stack_size;

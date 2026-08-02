@@ -327,6 +327,9 @@ int _main( int argc, char *argv[] )
 		mask32(0xd8006a8, 0, 2);
 	}
 
+	NetInit();
+	NetConnect();
+	
 	while (1)
 	{
 		_ahbMemFlush(0);
@@ -446,7 +449,6 @@ int _main( int argc, char *argv[] )
 			SOCKUpdateRegisters();
 			udelay(200);
 		}
-		NetUpdate();
 		StreamUpdateRegisters();
 		CheckOSReport();
 		if(GCNCard_CheckChanges())

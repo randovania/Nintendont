@@ -57,10 +57,11 @@ typedef struct NetSocketData {
 
 } NetSocketData;
 
-extern char __net_stack_addr, __net_stack_size;
+extern char __net_stack_addr_1, __net_stack_size_1, __net_stack_addr_2, __net_stack_size_2;
 
-static u32 net_thread_id = 0;
+static u32 thread_id = 0;
 static u32* net_thread_stack;
+static u32* net_update_stack;
 
 static s32 net_message_queue = -1;
 static u8* net_queue_heap = NULL;
@@ -111,17 +112,27 @@ void NetInit() {
   // from Heap
   u32 net_thread_size = 0x400;
   net_thread_stack = (u32*)heap_alloc_aligned(netHeap, net_thread_size, 32);
+  u32 net_update_size = 0x400;
+  net_update_stack = (u32*)heap_alloc_aligned(netHeap, net_update_size, 32);
 #else
   // from kernel.ld
-  u32 net_thread_size = ((u32)(&__net_stack_size));
-  net_thread_stack = ((u32*)&__net_stack_addr);
+  u32 net_thread_size = ((u32)(&__net_stack_size_1));
+  net_thread_stack = ((u32*)&__net_stack_addr_1);
+  u32 net_update_size = ((u32)(&__net_stack_size_2));
+  net_update_stack = ((u32*)&__net_stack_addr_2);
 #endif
 
-  net_thread_id = thread_create(NetThread, NULL, net_thread_stack, net_thread_size / sizeof(u32), 0x78, 1);
-  dbgprintf("[Net] thread_create: %d\r\n", net_thread_id);
+  thread_id = thread_create(NetThread, NULL, net_thread_stack, net_thread_size / sizeof(u32), 0x78, 1);
+  dbgprintf("[Net] thread_create NetThread: %d\r\n", thread_id);
 
-  result = thread_continue(net_thread_id);
-  dbgprintf("[Net] thread_continue: %d\r\n", result);
+  result = thread_continue(thread_id);
+  dbgprintf("[Net] thread_continue NetThread: %d\r\n", result);
+
+  thread_id = thread_create(NetUpdate, NULL, net_update_stack, net_update_size / sizeof(u32), 0x78, 1);
+  dbgprintf("[Net] thread_create NetUpdate: %d\r\n", thread_id);
+
+  result = thread_continue(thread_id);
+  dbgprintf("[Net] thread_continue NetUpdate: %d\r\n", result);
 }
 
 void NetConnect() {
@@ -130,6 +141,13 @@ void NetConnect() {
   int result;
 
   dbgprintf("[Net] NetConnect\r\n");
+
+  static s32 kdData[8] ALIGNED(32);
+  s32 kdFd = IOS_Open("/dev/net/kd/request", 0);
+  do {
+    IOS_Ioctl(kdFd, 6, NULL, 0, kdData, 0x20);
+  } while (kdData[0] < 0);
+  IOS_Close(kdFd);
 
   // SOStartup. Should always return 0.
   result = IOS_Ioctl(soFd, IOCTL_SO_STARTUP, 0, 0, 0, 0);
@@ -221,7 +239,7 @@ void NetShutdown() {
   netHeap = -1;
 }
 
-u32 NetThread(__attribute__((unused)) void* arg) {
+u32 NetThread() {
   struct ipcmessage* msg = NULL;
   while (soFd != -1) {
     // dbgprintf("[NetThread] Waiting for a message in queue\r\n");
@@ -290,98 +308,108 @@ u32 NetThread(__attribute__((unused)) void* arg) {
   return 0;
 }
 
-void NetUpdate() {
+u32 NetUpdate() {
   int i, result;
 
-  if (soFd == -1 || netHeap == -1) {
-    dbgprintf("[Net] NetUpdate called before NetInit\r\n");
-    return;
-  }
-  if (mainSocket == -1) {
-    dbgprintf("[Net] NetUpdate called before NetConnect\r\n");
-    return;
-  }
+  while (1) {
 
-  for (i = 0; i < MAX_NET_SOCKETS; ++i) {
-    NetSocketData* data = net_socket_data[i];
-    if (data->busy || (data->state == NET_ACCEPT && net_has_active_accept)) {
+    // Block this thread so that scheduler lets other threads run.
+    // Number could maybe be adjusted, I just chose this randomly (around 6 frames, 99% respond percentile is
+    // usually less than 80ms)
+    mdelay(100);
+
+    if (soFd == -1 || netHeap == -1) {
+      dbgprintf("[Net] NetUpdate called before NetInit\r\n");
       continue;
     }
-    NetSocketState current_state = data->state;
-    dbgprintf("[NetUpdate] [Sock %d] Will execute %s; Last result: %d\r\n", i,
-              NetSocketOperationStrings[current_state], data->ipc_msg.result);
-    data->busy = true;
-    switch (current_state) {
-    case NET_ACCEPT: {
-      if (net_has_active_accept) {
+    if (mainSocket == -1) {
+      dbgprintf("[Net] NetUpdate called before NetConnect\r\n");
+      continue;
+    }
+
+    for (i = 0; i < MAX_NET_SOCKETS; ++i) {
+      NetSocketData* data = net_socket_data[i];
+      if (data->busy || (data->state == NET_ACCEPT && net_has_active_accept)) {
         continue;
       }
-      net_has_active_accept = true;
+      NetSocketState current_state = data->state;
+      dbgprintf("[NetUpdate] [Sock %d] Will execute %s; Last result: %d\r\n", i,
+                NetSocketOperationStrings[current_state], data->ipc_msg.result);
+      data->busy = true;
+      switch (current_state) {
+      case NET_ACCEPT: {
+        if (net_has_active_accept) {
+          continue;
+        }
+        net_has_active_accept = true;
 
-      // SOAccept
-      memset(&data->send_params.addr, 0, sizeof(struct address));
-      data->send_params.addr.len = 8;
-      data->send_params.addr.family = AF_INET;
+        // SOAccept
+        memset(&data->send_params.addr, 0, sizeof(struct address));
+        data->send_params.addr.len = 8;
+        data->send_params.addr.family = AF_INET;
 
-      // SOAccept should always return 0.
-      result = IOS_IoctlAsync(soFd, IOCTL_SO_ACCEPT, &mainSocket, 4, &data->send_params.addr, 8,
-                              net_message_queue, &data->ipc_msg);
-      break;
-    }
-    case NET_RECEIVE: {
-
-      // SORecvFrom
-      // Clean up the data to avoid garbage from previous calls.
-      memset(&data->send_params, 0, sizeof(struct sendto_params));
-      memset(&data->operation, 0, sizeof(SocketOperation));
-      data->send_params.socket = data->socket;
-      data->send_params.flags = 0;
-
-      data->ctlv[0].data = &data->send_params; // for just the first 8 bytes
-      data->ctlv[0].len = 8;
-      data->ctlv[1].data = &data->operation;
-      data->ctlv[1].len = sizeof(SocketOperation);
-      data->ctlv[2].data = NULL;
-      data->ctlv[2].len = 0;
-
-      // SORecVFrom should always return 0.
-      result = IOS_IoctlvAsync(soFd, IOCTLV_SO_RECVFROM, 1, 2, data->ctlv, net_message_queue, &data->ipc_msg);
-      break;
-    }
-    case NET_SEND: {
-      int outputBytes = processSocketOperation(&data->operation, data->output_buffer);
-
-      // SOSendTo preparation
-      memset(&data->send_params, 0, sizeof(struct sendto_params));
-      data->send_params.socket = data->socket;
-      data->send_params.flags = 0;
-      data->send_params.has_destaddr = 0;
-
-      data->ctlv[0].data = data->output_buffer;
-      data->ctlv[0].len = outputBytes;
-      data->ctlv[1].data = &data->send_params;
-      data->ctlv[1].len = sizeof(struct sendto_params);
-      data->ctlv[2].data = NULL;
-      data->ctlv[2].len = 0;
-
-      // SOSendTo should always return 0.
-      result = IOS_IoctlvAsync(soFd, IOCTLV_SO_SENDTO, 2, 0, data->ctlv, net_message_queue, &data->ipc_msg);
-      break;
-    }
-    case NET_CLOSE: {
-      // SOClose can return -8 (EBADF), but this shouldn't ever happen.
-      result =
-          IOS_IoctlAsync(soFd, IOCTL_SO_CLOSE, &data->socket, 4, NULL, 0, net_message_queue, &data->ipc_msg);
-      dbgprintf("[NetUpdate] NetUpdate socket %d had state NET_CLOSE and result %d\r\n", i, result);
-      if (result < 0) {
-        PrintNegativeResultWarn();
+        // SOAccept should always return 0.
+        result = IOS_IoctlAsync(soFd, IOCTL_SO_ACCEPT, &mainSocket, 4, &data->send_params.addr, 8,
+                                net_message_queue, &data->ipc_msg);
+        break;
       }
-      break;
+      case NET_RECEIVE: {
+
+        // SORecvFrom
+        // Clean up the data to avoid garbage from previous calls.
+        memset(&data->send_params, 0, sizeof(struct sendto_params));
+        memset(&data->operation, 0, sizeof(SocketOperation));
+        data->send_params.socket = data->socket;
+        data->send_params.flags = 0;
+
+        data->ctlv[0].data = &data->send_params; // for just the first 8 bytes
+        data->ctlv[0].len = 8;
+        data->ctlv[1].data = &data->operation;
+        data->ctlv[1].len = sizeof(SocketOperation);
+        data->ctlv[2].data = NULL;
+        data->ctlv[2].len = 0;
+
+        // SORecVFrom should always return 0.
+        result =
+            IOS_IoctlvAsync(soFd, IOCTLV_SO_RECVFROM, 1, 2, data->ctlv, net_message_queue, &data->ipc_msg);
+        break;
+      }
+      case NET_SEND: {
+        int outputBytes = processSocketOperation(&data->operation, data->output_buffer);
+
+        // SOSendTo preparation
+        memset(&data->send_params, 0, sizeof(struct sendto_params));
+        data->send_params.socket = data->socket;
+        data->send_params.flags = 0;
+        data->send_params.has_destaddr = 0;
+
+        data->ctlv[0].data = data->output_buffer;
+        data->ctlv[0].len = outputBytes;
+        data->ctlv[1].data = &data->send_params;
+        data->ctlv[1].len = sizeof(struct sendto_params);
+        data->ctlv[2].data = NULL;
+        data->ctlv[2].len = 0;
+
+        // SOSendTo should always return 0.
+        result = IOS_IoctlvAsync(soFd, IOCTLV_SO_SENDTO, 2, 0, data->ctlv, net_message_queue, &data->ipc_msg);
+        break;
+      }
+      case NET_CLOSE: {
+        // SOClose can return -8 (EBADF), but this shouldn't ever happen.
+        result = IOS_IoctlAsync(soFd, IOCTL_SO_CLOSE, &data->socket, 4, NULL, 0, net_message_queue,
+                                &data->ipc_msg);
+        dbgprintf("[NetUpdate] NetUpdate socket %d had state NET_CLOSE and result %d\r\n", i, result);
+        if (result < 0) {
+          PrintNegativeResultWarn();
+        }
+        break;
+      }
+      default:
+        continue;
+      }
+      dbgprintf("[Net] [Sock %d] Received %d after performing %s\r\n", i, result,
+                NetSocketOperationStrings[current_state]);
     }
-    default:
-      continue;
-    }
-    dbgprintf("[Net] [Sock %d] Received %d after performing %s\r\n", i, result,
-              NetSocketOperationStrings[current_state]);
   }
+  return 0;
 }
