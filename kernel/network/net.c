@@ -144,8 +144,9 @@ void NetConnect() {
 
   static s32 kdData[8] ALIGNED(32);
   s32 kdFd = IOS_Open("/dev/net/kd/request", 0);
+  u32 NWC24iStartupSocket = 6;
   do {
-    IOS_Ioctl(kdFd, 6, NULL, 0, kdData, 0x20);
+    IOS_Ioctl(kdFd, NWC24iStartupSocket, NULL, 0, kdData, 0x20);
   } while (kdData[0] < 0);
   IOS_Close(kdFd);
 
