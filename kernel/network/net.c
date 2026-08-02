@@ -70,6 +70,7 @@ int netHeap = -1;
 static int mainSocket = -1;
 static bool net_has_active_accept = false;
 static NetSocketData* net_socket_data[MAX_NET_SOCKETS];
+bool connected = false;
 
 void PrintNegativeResultWarn() {
   dbgprintf("[Net] WARNING: Negative result!!!");
@@ -135,8 +136,44 @@ void NetInit() {
   dbgprintf("[Net] thread_continue NetUpdate: %d\r\n", result);
 }
 
+void NetDisconnect() {
+  // Disconnects from the main network socket.
+
+  int i, result;
+  connected = false;
+
+  dbgprintf("[Net] NetDisconnect\r\n");
+
+  unsigned int* params = (unsigned int*)heap_alloc_aligned(netHeap, 4, 32);
+  params[0] = mainSocket;
+  result = IOS_Ioctl(soFd, IOCTL_SO_CLOSE, params, 4, 0, 0);
+  dbgprintf("[Net] SOClose: %d\r\n", result);
+  heap_free(netHeap, params);
+  mainSocket = -1;
+
+  s32 kdFd = IOS_Open("/dev/net/kd/request", 0);
+  u32 NWC24iCleanupSocket = 6;
+  result = IOS_Ioctl(kdFd, NWC24iCleanupSocket, NULL, 0, NULL, 0);
+  IOS_Close(kdFd);
+  dbgprintf("[Net] NWC24iCleanupSocket: %d\r\n", result);
+
+  for (i = 0; i < MAX_NET_SOCKETS; ++i) {
+    NetSocketData* data = net_socket_data[i];
+    data->busy = false;
+    data->state = NET_ACCEPT;
+    data->socket = -1;
+    data->ipc_msg.seek.origin = i;
+    data->ipc_msg.result = INITIAL_RESULT_VALUE;
+  }
+  net_has_active_accept = false;
+}
+
+
 void NetConnect() {
   // Connects to the network by preparing the main socket for accepting connections.
+
+  // All of the IOS_IOCTL calls can return negative codes if theres something wrong with the network
+  // connection.
 
   int result;
 
@@ -147,16 +184,21 @@ void NetConnect() {
   // first.
   static s32 kdData[8] ALIGNED(32);
   s32 kdFd = IOS_Open("/dev/net/kd/request", 0);
-  do {
-    IOS_Ioctl(kdFd, IOCTL_KD_NWC24ISTARTUPSOCKET, NULL, 0, kdData, 0x20);
-  } while (kdData[0] < 0);
+  result = IOS_Ioctl(kdFd, IOCTL_KD_NWC24ISTARTUPSOCKET, NULL, 0, kdData, 0x20);
   IOS_Close(kdFd);
+  dbgprintf("[Net] NWC24iStartupSocket: %d\r\n", result);
+  if (result < 0) {
+    goto handle_error;
+  }
 
-  // SOStartup. Should always return 0.
+  // SOStartup.
   result = IOS_Ioctl(soFd, IOCTL_SO_STARTUP, 0, 0, 0, 0);
   dbgprintf("[Net] SOStartup: %d\r\n", result);
+  if (result < 0) {
+    goto handle_error;
+  }
 
-  // SOSocket. Can theoretically return error codes, but shouldn't.
+  // SOSocket.
   unsigned int* params = (unsigned int*)heap_alloc_aligned(netHeap, 12, 32);
   params[0] = AF_INET;
   params[1] = SOCK_STREAM;
@@ -164,10 +206,11 @@ void NetConnect() {
   mainSocket = IOS_Ioctl(soFd, IOCTL_SO_SOCKET, params, 12, 0, 0);
   dbgprintf("[Net] SOSocket: %d\r\n", mainSocket);
   if (mainSocket < 0) {
-    PrintNegativeResultWarn();
+    heap_free(netHeap, params);
+    goto handle_error;
   }
 
-  // SOBind. Should always return 0.
+  // SOBind.
   struct bind_params* bParams =
       (struct bind_params*)heap_alloc_aligned(netHeap, sizeof(struct bind_params), 32);
   memset(bParams, 0, sizeof(struct bind_params));
@@ -180,42 +223,28 @@ void NetConnect() {
   result = IOS_Ioctl(soFd, IOCTL_SO_BIND, bParams, sizeof(struct bind_params), 0, 0);
   dbgprintf("[Net] SOBind: %d\r\n", result);
   heap_free(netHeap, bParams);
+  if (result < 0) {
+    heap_free(netHeap, params);
+    goto handle_error;
+  }
 
-  // SOListen. Can return negative error codes, but shouldn't.
+  // SOListen.
   params[0] = mainSocket;
   params[1] = 1;
   result = IOS_Ioctl(soFd, IOCTL_SO_LISTEN, params, 8, 0, 0);
   dbgprintf("[Net] SOListen: %d\r\n", result);
+  heap_free(netHeap, params);
   if (result < 0) {
-    PrintNegativeResultWarn();
+    goto handle_error;
   }
-  heap_free(netHeap, params);
-}
 
-void NetDisconnect() {
-  // Disconnects from the main network socket.
+  connected = true;
+  return;
 
-  int i, result;
-
-  dbgprintf("[Net] NetDisconnect\r\n");
-
-  unsigned int* params = (unsigned int*)heap_alloc_aligned(netHeap, 4, 32);
-  params[0] = mainSocket;
-  result = IOS_Ioctl(soFd, IOCTL_SO_CLOSE, params, 4, 0, 0);
-  dbgprintf("[Net] SOClose: %d\r\n", result);
-  heap_free(netHeap, params);
-
-  mainSocket = -1;
-
-  for (i = 0; i < MAX_NET_SOCKETS; ++i) {
-    NetSocketData* data = net_socket_data[i];
-    data->busy = false;
-    data->state = NET_ACCEPT;
-    data->socket = -1;
-    data->ipc_msg.seek.origin = i;
-    data->ipc_msg.result = INITIAL_RESULT_VALUE;
-  }
-  net_has_active_accept = false;
+handle_error:
+  dbgprintf("[Net] NetConnect failed...\n\r");
+  NetDisconnect();
+  return;
 }
 
 void NetShutdown() {
@@ -262,8 +291,6 @@ u32 NetThread() {
       // -38 to -40 (ENetUnreach, ENetReset, ENetDown)
       // -56 (ENotConn)?
       NetDisconnect();
-      mdelay(1000);
-      NetConnect();
       continue;
     }
 
@@ -315,7 +342,6 @@ u32 NetUpdate() {
   int i, result;
 
   while (1) {
-
     // Block this thread so that scheduler lets other threads run.
     // Number could maybe be adjusted, I just chose this randomly (around 6 frames, 99% respond percentile is
     // usually less than 80ms)
@@ -325,8 +351,13 @@ u32 NetUpdate() {
       dbgprintf("[Net] NetUpdate called before NetInit\r\n");
       continue;
     }
-    if (mainSocket == -1) {
-      dbgprintf("[Net] NetUpdate called before NetConnect\r\n");
+    if (!connected) {
+      dbgprintf("[Net] NetUpdate while not being connected, connecting now...\r\n");
+      NetConnect();
+      if (!connected) {
+        dbgprintf("[Net] NetUpdate failed to connect\r\n");
+        mdelay(1000);
+      }
       continue;
     }
 
@@ -410,7 +441,7 @@ u32 NetUpdate() {
       default:
         continue;
       }
-      dbgprintf("[Net] [Sock %d] Received %d after performing %s\r\n", i, result,
+      dbgprintf("[NetUpdate] [Sock %d] Received %d after performing %s\r\n", i, result,
                 NetSocketOperationStrings[current_state]);
     }
   }
