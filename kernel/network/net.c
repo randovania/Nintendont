@@ -84,8 +84,7 @@ void NetInit() {
   dbgprintf("[Net] NetInit\r\n");
 
   // Open the /dev resource
-  char* name = "/dev/net/ip/top";
-  soFd = IOS_Open(name, 0);
+  soFd = IOS_Open("/dev/net/ip/top", 0);
   dbgprintf("[Net] IOS_Open: %d\r\n", soFd);
 
 #ifdef USE_CUSTOM_HEAP
@@ -151,9 +150,9 @@ void NetDisconnect() {
   heap_free(netHeap, params);
   mainSocket = -1;
 
+  static s32 kdData[8] ALIGNED(32);
   s32 kdFd = IOS_Open("/dev/net/kd/request", 0);
-  u32 NWC24iCleanupSocket = 6;
-  result = IOS_Ioctl(kdFd, NWC24iCleanupSocket, NULL, 0, NULL, 0);
+  result = IOS_Ioctl(kdFd, IOCTL_KD_NWC24ICLEANUPSOCKET, NULL, 0, kdData, 0x20);
   IOS_Close(kdFd);
   dbgprintf("[Net] NWC24iCleanupSocket: %d\r\n", result);
 
