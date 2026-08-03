@@ -94,7 +94,7 @@ static int netHeap = -1;
 static int mainSocket = -1;
 static bool net_has_active_accept = false;
 static NetSocketData* net_socket_data[MAX_NET_SOCKETS];
-static bool connected = false;  // maybe expose a getConnectionStatus?
+static bool connected = false; // maybe expose a getConnectionStatus?
 
 static u32 NetThread();
 static u32 NetUpdate();
@@ -173,7 +173,7 @@ static void NetDisconnect() {
   heap_free(netHeap, params);
   mainSocket = -1;
 
-  static s32 kdData[8] ALIGNED(32); // TODO: see the todo in NetConnect about this. 
+  static s32 kdData[8] ALIGNED(32); // TODO: see the todo in NetConnect about this.
   s32 kdFd = IOS_Open("/dev/net/kd/request", 0);
   result = IOS_Ioctl(kdFd, IOCTL_KD_NWC24ICLEANUPSOCKET, NULL, 0, kdData, 32);
   IOS_Close(kdFd);
@@ -196,9 +196,11 @@ static void NetConnect() {
   // All of the IOS_IOCTL calls can return negative codes if theres something wrong with the network
   // connection.
 
-  // TODO: 
-  // 1) are all of the heap allocations necessary here? Or can we put them on the stack? Would be nice to not worry about freeing stuff correctly.
-  // 2) i kinda don't like how kdData jumps out as being different *and* is static.
+  // TODO:
+  // 1) are all of the heap allocations necessary here? Or can we put them on the stack? Would be nice to not
+  // worry about freeing stuff correctly.
+  // 2) i kinda don't like how kdData jumps out as being different *and*
+  // is static.
 
   int result;
 
@@ -207,7 +209,7 @@ static void NetConnect() {
   // All socket funtionality on dev/net/ip/top is locked behind the WC24 socket.
   // Thus, for those to work correctly, we need to open (or close when we want to reset things) this one
   // first.
-  static s32 kdData[8] ALIGNED(32); // TODO: do we need this to be a static array? can we get this from 
+  static s32 kdData[8] ALIGNED(32);
   s32 kdFd = IOS_Open("/dev/net/kd/request", 0);
   result = IOS_Ioctl(kdFd, IOCTL_KD_NWC24ISTARTUPSOCKET, NULL, 0, kdData, 32);
   IOS_Close(kdFd);
