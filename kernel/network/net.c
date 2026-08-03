@@ -142,11 +142,13 @@ void NetConnect() {
 
   dbgprintf("[Net] NetConnect\r\n");
 
+  // All socket funtionality on dev/net/ip/top is locked behind the WC24 socket.
+  // Thus, for those to work correctly, we need to open (or close when we want to reset things) this one
+  // first.
   static s32 kdData[8] ALIGNED(32);
   s32 kdFd = IOS_Open("/dev/net/kd/request", 0);
-  u32 NWC24iStartupSocket = 6;
   do {
-    IOS_Ioctl(kdFd, NWC24iStartupSocket, NULL, 0, kdData, 0x20);
+    IOS_Ioctl(kdFd, IOCTL_KD_NWC24ISTARTUPSOCKET, NULL, 0, kdData, 0x20);
   } while (kdData[0] < 0);
   IOS_Close(kdFd);
 

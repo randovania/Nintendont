@@ -112,4 +112,9 @@ struct sendto_params {
     struct address addr;
 };
 
+enum {
+    IOCTL_KD_NWC24ISTARTUPSOCKET = 6,
+    IOCTL_KD_NWC24ICLEANUPSOCKET = 7
+};
+
 #endif // _SOCKET_DEFINITIONS_H_
