@@ -4,8 +4,8 @@
 
 void NetInit();
 void NetConnect();
-void NetUpdate();
+u32 NetUpdate();
 void NetShutdown();
-u32 NetThread(void* arg);
+u32 NetThread();
 
 #endif
