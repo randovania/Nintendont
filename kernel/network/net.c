@@ -24,6 +24,30 @@
 
 ////////
 
+// General workflow of this file:
+// - Call NetInit() to initialize and have the Wii connect to the network to receive commands
+// - Call NetShutdown() to disconnect and free resources
+
+// Internally, NetInit will create the global resources and create two threads:
+// - NetUpdate: Is responsible for connecting to the network if not connected, and for doing IOCTL calls on
+// the sockets
+// - NetThread: Is responsible for receiving the results of the IOCTL calls, updating the socket states and
+// disconnecting if any result came back as an error.
+
+// Some questions from the past:
+// - Why is NetUpdate running on a seperate thread? Because NetUpdate is also responsible for *connecting* and
+// connecting is blocking. We don't want NetThread to be the one responsible for connecting, because that can
+// mess with things depending when the scheduler calls that function.
+// - Why are the IOCTL calls in NetUpdate Async? Because if they were sync, then later sockets would be
+// blocked by earlier sockets.
+
+// Relevant errors that can occur:
+// -13 to -15 (EConnAborted, EConnRefused, EConnReset)
+// -38 to -40 (ENetUnreach, ENetReset, ENetDown)
+// -56 (ENotConn)?
+
+////////
+
 struct setsockopt_params {
   u32 socket;
   u32 level;
@@ -66,15 +90,14 @@ static u32* net_update_stack;
 static s32 net_message_queue = -1;
 static u8* net_queue_heap = NULL;
 static int soFd = -1;
-int netHeap = -1;
+static int netHeap = -1;
 static int mainSocket = -1;
 static bool net_has_active_accept = false;
 static NetSocketData* net_socket_data[MAX_NET_SOCKETS];
-bool connected = false;
+static bool connected = false;  // maybe expose a getConnectionStatus?
 
-void PrintNegativeResultWarn() {
-  dbgprintf("[Net] WARNING: Negative result!!!");
-}
+static u32 NetThread();
+static u32 NetUpdate();
 
 void NetInit() {
   // Initializes important lifelong variables.
@@ -135,7 +158,7 @@ void NetInit() {
   dbgprintf("[Net] thread_continue NetUpdate: %d\r\n", result);
 }
 
-void NetDisconnect() {
+static void NetDisconnect() {
   // Disconnects from the main network socket.
 
   int i, result;
@@ -150,9 +173,9 @@ void NetDisconnect() {
   heap_free(netHeap, params);
   mainSocket = -1;
 
-  static s32 kdData[8] ALIGNED(32);
+  static s32 kdData[8] ALIGNED(32); // TODO: see the todo in NetConnect about this. 
   s32 kdFd = IOS_Open("/dev/net/kd/request", 0);
-  result = IOS_Ioctl(kdFd, IOCTL_KD_NWC24ICLEANUPSOCKET, NULL, 0, kdData, 0x20);
+  result = IOS_Ioctl(kdFd, IOCTL_KD_NWC24ICLEANUPSOCKET, NULL, 0, kdData, 32);
   IOS_Close(kdFd);
   dbgprintf("[Net] NWC24iCleanupSocket: %d\r\n", result);
 
@@ -167,12 +190,15 @@ void NetDisconnect() {
   net_has_active_accept = false;
 }
 
-
-void NetConnect() {
+static void NetConnect() {
   // Connects to the network by preparing the main socket for accepting connections.
 
   // All of the IOS_IOCTL calls can return negative codes if theres something wrong with the network
   // connection.
+
+  // TODO: 
+  // 1) are all of the heap allocations necessary here? Or can we put them on the stack? Would be nice to not worry about freeing stuff correctly.
+  // 2) i kinda don't like how kdData jumps out as being different *and* is static.
 
   int result;
 
@@ -181,9 +207,9 @@ void NetConnect() {
   // All socket funtionality on dev/net/ip/top is locked behind the WC24 socket.
   // Thus, for those to work correctly, we need to open (or close when we want to reset things) this one
   // first.
-  static s32 kdData[8] ALIGNED(32);
+  static s32 kdData[8] ALIGNED(32); // TODO: do we need this to be a static array? can we get this from 
   s32 kdFd = IOS_Open("/dev/net/kd/request", 0);
-  result = IOS_Ioctl(kdFd, IOCTL_KD_NWC24ISTARTUPSOCKET, NULL, 0, kdData, 0x20);
+  result = IOS_Ioctl(kdFd, IOCTL_KD_NWC24ISTARTUPSOCKET, NULL, 0, kdData, 32);
   IOS_Close(kdFd);
   dbgprintf("[Net] NWC24iStartupSocket: %d\r\n", result);
   if (result < 0) {
@@ -247,7 +273,7 @@ handle_error:
 }
 
 void NetShutdown() {
-  // Tears everything down.
+  // Tears everything down. TODO: never called. should look where nintendont tries to reboot the kernel.
 
   int i;
 
@@ -260,6 +286,8 @@ void NetShutdown() {
   }
   soFd = -1;
 
+  NetDisconnect();
+
 #ifdef USE_CUSTOM_THREAD_STACK
   heap_free(netHeap, net_thread_stack);
 #endif
@@ -270,7 +298,7 @@ void NetShutdown() {
   netHeap = -1;
 }
 
-u32 NetThread() {
+static u32 NetThread() {
   struct ipcmessage* msg = NULL;
   while (soFd != -1) {
     // dbgprintf("[NetThread] Waiting for a message in queue\r\n");
@@ -285,10 +313,7 @@ u32 NetThread() {
               res);
 
     if (res < 0) {
-      // If an error occurs, just restart the whole connection. Relevant errors that can occur:
-      // -13 to -15 (EConnAborted, EConnRefused, EConnReset)
-      // -38 to -40 (ENetUnreach, ENetReset, ENetDown)
-      // -56 (ENotConn)?
+      // If an error occurs, just restart the whole connection.
       NetDisconnect();
       continue;
     }
@@ -337,19 +362,21 @@ u32 NetThread() {
   return 0;
 }
 
-u32 NetUpdate() {
+static u32 NetUpdate() {
   int i, result;
 
-  while (1) {
+  if (soFd == -1 || netHeap == -1) {
+    // Failsafe just in case
+    dbgprintf("[Net] NetUpdate called before NetInit\r\n");
+    return 0;
+  }
+
+  while (soFd != -1) {
     // Block this thread so that scheduler lets other threads run.
     // Number could maybe be adjusted, I just chose this randomly (around 6 frames, 99% respond percentile is
     // usually less than 80ms)
     mdelay(100);
 
-    if (soFd == -1 || netHeap == -1) {
-      dbgprintf("[Net] NetUpdate called before NetInit\r\n");
-      continue;
-    }
     if (!connected) {
       dbgprintf("[Net] NetUpdate while not being connected, connecting now...\r\n");
       NetConnect();
@@ -431,16 +458,12 @@ u32 NetUpdate() {
         // SOClose can return -8 (EBADF), but this shouldn't ever happen.
         result = IOS_IoctlAsync(soFd, IOCTL_SO_CLOSE, &data->socket, 4, NULL, 0, net_message_queue,
                                 &data->ipc_msg);
-        dbgprintf("[NetUpdate] NetUpdate socket %d had state NET_CLOSE and result %d\r\n", i, result);
-        if (result < 0) {
-          PrintNegativeResultWarn();
-        }
         break;
       }
       default:
         continue;
       }
-      dbgprintf("[NetUpdate] [Sock %d] Received %d after performing %s\r\n", i, result,
+      dbgprintf("[NetUpdate] [Sock %d] Returned %d after performing %s\r\n", i, result,
                 NetSocketOperationStrings[current_state]);
     }
   }
