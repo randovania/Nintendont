@@ -10,7 +10,7 @@
 #define MAX_ABSOLUTE_ADDRESSES 16
 
 // This should point to our smallest operation.
-#define MINIMUM_MESSAGE_SIZE (int)sizeof(struct RequestVersionOperation)
+#define MINIMUM_MESSAGE_SIZE ((int)sizeof(struct RequestVersionOperation))
 
 #pragma pack(push, 1)
 typedef struct SocketOperationHeader {
