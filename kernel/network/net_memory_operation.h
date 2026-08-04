@@ -8,7 +8,9 @@
 #define MAX_INPUT_BYTES 256
 #define MAX_OUTPUT_BYTES 256
 #define MAX_ABSOLUTE_ADDRESSES 16
-#define MINIMUM_MESSAGE_SIZE 4
+
+// This should point to our smallest operation.
+#define MINIMUM_MESSAGE_SIZE (int)sizeof(struct RequestVersionOperation)
 
 #pragma pack(push, 1)
 typedef struct SocketOperationHeader {
@@ -31,7 +33,8 @@ typedef struct BulkMemoryOperation {
   SocketOperationHeader header; // type is always 1
   u8 operations_count;
   u8 absolute_addresses_count;
-  u8* data;
+  // -2 due to the 2 bytes used for operations_count and absolute_addresses_count
+  u8 data[MAX_INPUT_BYTES - 2];
   // u32 absolute_addresses[absolute_addresses_count];
   // MemoryOperation operations[operations_count];
 } BulkMemoryOperation;
@@ -46,7 +49,7 @@ typedef struct MemoryOperationHeader {
 
 typedef struct MemoryOperation {
   MemoryOperationHeader header;
-  u8* data;
+  u8 data[];
   // u8 byte_count;  # if !header.is_word
   // u16 offset_count; # if header.has_offset
   // u8 write_data[byte_count or 4]; # if header.has_write
