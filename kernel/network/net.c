@@ -18,9 +18,9 @@
 #define NINTENDONT_PORT 43673
 #define MAX_NET_SOCKETS 4
 
-// AFAIK wii result values can be from -78 to 78, so in order to not conflict
-// with anything i chose this out of range one.
-#define INITIAL_RESULT_VALUE 255
+// AFAIK wii result values can be from -78 to MAX_INPUT_BYTES/MAX_OUTPUT_BYTES (depending on whats higher), so
+// in order to not conflict with anything i chose this unique out of range one.
+#define INITIAL_RESULT_VALUE 133780085
 
 ////////
 
@@ -321,6 +321,9 @@ static u32 NetThread() {
     }
 
     if (res == INITIAL_RESULT_VALUE) {
+      // We should only get the initial result value if we're trying to handle more sockets immediately
+      // after a disconnect. In which case they contain invalid data, so ignore them.
+      dbgprintf("[NetThread] [Sock %d] Skipping, as it's the initial result value.", i);
       continue;
     }
 
