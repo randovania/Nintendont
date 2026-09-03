@@ -116,8 +116,8 @@ void test_processArrayOperation_zeros(void) {
             .keep_alive = 1
         },
         .address = 0x80000000, 
-        .count = 1,
-        .size = 4,
+        .count = 5,
+        .size = 1,
         .stride = 0
     };
 
@@ -125,12 +125,10 @@ void test_processArrayOperation_zeros(void) {
     result = processSocketOperation((SocketOperation *)&socket_op, output);
 
     // Assert
-    TEST_ASSERT_EQUAL_INT_MESSAGE(5, result, "Should return 5 byte (success byte + 1*4 bytes).");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(6, result, "Should return 5 byte (success byte + 5*1 bytes).");
     TEST_ASSERT_EQUAL_UINT8_MESSAGE(1, output[0], "First byte should indicate success.");
     // TODO: use mocking and assert for correct addresses being called
 }
-
-// TODO: seperate test stride smaller than size? need to check on hardware first whether wii likes that...
 
 // weird alignments
 void test_processArrayOperation_weird_alignments(void) {
