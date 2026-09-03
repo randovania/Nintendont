@@ -2,6 +2,23 @@ cmake_minimum_required(VERSION 3.23)
 
 project(NintendontTest)
 
+add_library(unity)
+set_target_properties(unity PROPERTIES LINKER_LANGUAGE C)
+target_sources(unity
+    PRIVATE
+        Unity/src/unity.c
+
+    PUBLIC
+        FILE_SET unity_headers
+        TYPE HEADERS
+        BASE_DIRS 
+            Unity/src
+
+        FILES
+            Unity/src/unity.h
+
+)
+
 add_library(test_headers)
 set_property(TARGET test_headers PROPERTY C_STANDARD 90)
 target_sources(test_headers 
@@ -21,25 +38,10 @@ target_sources(test_headers
             ../kernel/network/net_memory_operation.h
             
 )
-
-
-add_library(unity)
-set_target_properties(unity PROPERTIES LINKER_LANGUAGE C)
-target_sources(unity
-    PRIVATE
-        Unity/src/unity.c
-
+target_link_libraries(test_headers
     PUBLIC
-        FILE_SET unity_headers
-        TYPE HEADERS
-        BASE_DIRS 
-            Unity/src
-
-        FILES
-            Unity/src/unity.h
-
+        unity
 )
-
 
 add_executable(test_exec)
 set_property(TARGET test_exec PROPERTY C_STANDARD 90)
