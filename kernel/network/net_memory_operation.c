@@ -143,6 +143,10 @@ int processArrayOperation(ReadArrayOperation* read_array_op, u8* output) {
       return 0;
     }
 
+    if (!VALID_PTR(address) || (size != 0 && !VALID_PTR(address + size - 1))) {
+      return 0;
+    }
+
     readBytesFromGCMemory(address, size, output + result_index);
     result_index += size;
     address += read_array_op->stride;
@@ -180,6 +184,8 @@ void write32ToGCMemory(u32 addr, u32 value) {
 }
 
 void readBytesFromGCMemory(u32 addr, int byte_count, u8* output) {
+  // This function assumes that the address is valid and that the output buffer is large enough to hold the data.
+
   int index = 0;
   // Try doing 32bit reads. GCN will crash if addr isn't aligned for them.
   while ((byte_count >= 4) && (addr & 3) == 0) {
