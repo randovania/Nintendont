@@ -10,7 +10,7 @@ static inline void checkValidAddress(u32 address)
     }
 }
 
-#define VERBOSE_PRINTS true
+#define VERBOSE_PRINTS false
 
 #undef read8
 #define read8(addr) read8_stub(addr)
