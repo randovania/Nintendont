@@ -1,7 +1,7 @@
-#include "Config.h"
+#include "global.h"
+
 #include "common.h"
 #include "debug.h"
-#include "global.h"
 #include "ipc.h"
 #include "socket_definitions.h"
 #include "string.h"
