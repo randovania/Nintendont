@@ -37,7 +37,7 @@ void test_processRequestVersion(void) {
     TEST_ASSERT_EQUAL_UINT32_MESSAGE(MAX_ABSOLUTE_ADDRESSES, max_addresses, "Field 12-15 should be MAX_ABSOLUTE_ADDRESSES");
     TEST_ASSERT_EQUAL_UINT32_MESSAGE(NIN_MAJOR_VERSION, major_version, "Field 16-19 should be NIN_MAJOR_VERSION");
     TEST_ASSERT_EQUAL_UINT32_MESSAGE(NIN_MINOR_VERSION, minor_version, "Field 20-23 should be NIN_MINOR_VERSION");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(24, result, "Should only return 7 U32s.");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(24, result, "Should only return 6 U32s.");
 }
 
 
