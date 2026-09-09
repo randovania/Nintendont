@@ -7,8 +7,8 @@
 #include "string.h"
 #include "syscalls.h"
 
-#include "net.h"
-#include "net_memory_operation.h"
+#include "network/net.h"
+#include "network/net_memory_operation.h"
 
 ////////
 // Customize this module

@@ -2,16 +2,10 @@
 // Created by pwootage on 8/19/16.
 //
 
-#include "net_memory_operation.h"
+#include "network/net_memory_operation.h"
 
 #define GET_PTR(value) (P2C(value))
 #define VALID_PTR(value) (value >= 0x80000000 && value < 0x82400000)
-
-#define CHECK_INPUT(input)         \
-  if ((input) > MAX_INPUT_BYTES) { \
-    output[0] = 0xFF;              \
-    return 1;                      \
-  }
 
 int processBulkMemoryCommands(BulkMemoryOperation* bulk_memory_op, u8* output);
 
@@ -37,6 +31,13 @@ void write32ToBuffer(u8* output, u32 value, int* index) {
 }
 
 int processBulkMemoryCommands(BulkMemoryOperation* bulk_memory_op, u8* output) {
+
+#define CHECK_INPUT(input)         \
+  if ((input) > MAX_INPUT_BYTES) { \
+    output[0] = 0xFF;              \
+    return 1;                      \
+  }
+
   u32 addresses[MAX_ABSOLUTE_ADDRESSES];
   int i, result_index = 0, input_index = 0;
 
@@ -114,6 +115,8 @@ int processBulkMemoryCommands(BulkMemoryOperation* bulk_memory_op, u8* output) {
   }
 
   return result_index;
+
+#undef CHECK_INPUT
 }
 
 int processRequestVersion(__attribute__((unused)) RequestVersionOperation* request_version_op, u8* output) {
