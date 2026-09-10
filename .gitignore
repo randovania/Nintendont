@@ -9,3 +9,4 @@ kernel/kernel.map
 loader/build/
 loader/data/kernel.zip
 fatfs/*.a
+test/build/
