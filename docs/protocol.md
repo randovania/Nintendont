@@ -1,8 +1,10 @@
 # Remote Memory Protocol
 
-This document describes the remote memory protocol that is used by Nintendont. It's defined in `kernel/network/net_memory_operation.[h/c]` .
+This document describes the remote memory protocol that is used by Nintendont. It's defined in `kernel/network/net_memory_operation.[h/c]`.
 
 The following explains the current API, which is on version 2.
+
+The endianness for both requests and responses is based on the machine where the program runs. The same goes for the size of a word.
 
 ## Request Packet Header
 
@@ -51,6 +53,8 @@ The response is the following:
 - `max_absolute_addresses` shows how many addresses this program can operate on at the same time. This is only used for the Bulk Memory operation. See the description for `absolute_address_count`. Due to how the Bulk Memory operation is defined, this number has to be lower or equal to 16. It should at minimum be 1 in order to support the Bulk Memory Operation.
 - `major_version` shows the major version of this program.
 - `minor version` shows the minor version of this program.
+
+it is the only response that is always given in little-endianness.
 
 ## Bulk Memory
 
@@ -265,6 +269,7 @@ The following things are not part of the protocol. They're Nintendont-specific q
 - Nintendont allows up to 4 simultaneous connections.
 
 TODOs for version 3:
+- specify endianness and word size in request version
 - rename "request version" since it does more than request the version?
 - close connection if a bigger input is send than what can be handled (e.g. sending 400 when max_input_bytes is 200)
 - clarify what to do if keep_alive doesnt make sense in the context.
