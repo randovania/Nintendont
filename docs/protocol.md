@@ -46,9 +46,9 @@ The response is the following:
 |  u32   | minor_version          |
 
 - `api_version` shows the api version of the protocol this program supports.
-- `max_input_bytes` shows the maximum amount bytes on how large a packet can be.
-- `max_output_bytes` shows the maximum amount of bytes on how large a response from the program can be. The behaviour on what happens if a response would be bigger than this number is different per operation.
-- `max_absolute_addresses` shows how many addresses this program can operate on at the same time. This is only used for the Bulk Memory operation.
+- `max_input_bytes` shows the maximum amount bytes on how large a packet can be. It's undefined behaviour if a request is bigger than `max_input_bytes`. It's recommended that the program supports at least 16 bytes to be able to handle all operations.
+- `max_output_bytes` shows the maximum amount of bytes on how large a response from the program can be. The behaviour on what happens if a response would be bigger than this number is different per operation. It's recommended that the program supports at least word-sized bytes. But supporting 0 bytes would work too, as it would mean that the program only supports write operations.
+- `max_absolute_addresses` shows how many addresses this program can operate on at the same time. This is only used for the Bulk Memory operation. See the description for `absolute_address_count`. Due to how the Bulk Memory operation is defined, this number has to be lower or equal to 16. It should at minimum be 1 in order to support the Bulk Memory Operation.
 - `major_version` shows the major version of this program.
 - `minor version` shows the minor version of this program.
 
@@ -264,14 +264,10 @@ The following things are not part of the protocol. They're Nintendont-specific q
 - Reading lots of data from an address that is not 4-byte-aligned is slow and should be avoided.
 - Nintendont allows up to 4 simultaneous connections.
 
-
-TODOs for clarification:
-- what to do if keep_alive doesnt make sense in context?
-- rename "request version" since it does more than request the version?
-- what happens if we send a too big input? E.g. 400 if device can only handle 256
-- whats the relation to max_input/output/max_addresses? what are the min/max values?
-
 TODOs for version 3:
+- rename "request version" since it does more than request the version?
+- close connection if a bigger input is send than what can be handled (e.g. sending 400 when max_input_bytes is 200)
+- clarify what to do if keep_alive doesnt make sense in the context.
 - change response for invalid types in request packets?
 - request version: bitfield for indicating which types are supported?
 - maybe standardize response for when response would exceed output?
