@@ -35,8 +35,8 @@ jobs:
 
     - name: Compile tests
       env:
-        CC: $(DEVKITPPC)/bin/powerpc-eabi-gcc
-        CXX: $(DEVKITPPC)/bin/powerpc-eabi-g++
+        CC: $DEVKITPPC/bin/powerpc-eabi-gcc
+        CXX: $DEVKITPPC/bin/powerpc-eabi-g++
       run: |
         cmake -S ./test -B ./test/build
         make -C test/build
