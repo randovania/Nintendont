@@ -216,9 +216,9 @@ It has the following additional fields:
 |  Type  |   Name   |
 |--------|----------|
 |   u32  | address  |
-|   u32  | count    |
-|   u32  | size     |
-|   u32  | stride   |
+|   u16  | count    |
+|   u16  | size     |
+|   u16  | stride   |
 
 - `address` shows the starting memory address of the array
 - `count` shows how many elements of the array to read.
