@@ -1,0 +1,9 @@
+minimum_pre_commit_version: 4.4.0
+repos:
+  - repo: local
+    hooks:
+      - id: clang-formatter
+        name: Clang Formatter for Network folder
+        entry: clang-format --style=file -i
+        language: unsupported
+        files: ^kernel\/network\/.*\.[ch]$
