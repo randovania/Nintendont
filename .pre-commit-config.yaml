@@ -1,9 +1,9 @@
 minimum_pre_commit_version: 4.4.0
 repos:
-  - repo: local
+  - repo: https://github.com/pre-commit/mirrors-clang-format
+    rev: v23.1.1
     hooks:
-      - id: clang-formatter
-        name: Clang Formatter for Network folder
-        entry: clang-format --style=file -i
-        language: unsupported
-        files: ^kernel\/network\/.*\.[ch]$
+    - id: clang-format
+      types_or: [c++, c]
+      # Only run for network folder
+      files: ^kernel\/network\/.*\.[ch]$
