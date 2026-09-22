@@ -184,7 +184,8 @@ void write32ToGCMemory(u32 addr, u32 value) {
 }
 
 void readBytesFromGCMemory(u32 addr, int byte_count, u8* output) {
-  // This function assumes that the address is valid and that the output buffer is large enough to hold the data.
+  // This function assumes that the address is valid and that the output buffer is large enough to hold the
+  // data.
 
   int index = 0;
   // Try doing 32bit reads. GCN will crash if addr isn't aligned for them.
