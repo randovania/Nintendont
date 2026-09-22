@@ -2,16 +2,10 @@
 // Created by pwootage on 8/19/16.
 //
 
-#include "net_memory_operation.h"
+#include "network/net_memory_operation.h"
 
 #define GET_PTR(value) (P2C(value))
 #define VALID_PTR(value) (value >= 0x80000000 && value < 0x82400000)
-
-#define CHECK_INPUT(input)         \
-  if ((input) > MAX_INPUT_BYTES) { \
-    output[0] = 0xFF;              \
-    return 1;                      \
-  }
 
 int processBulkMemoryCommands(BulkMemoryOperation* bulk_memory_op, u8* output);
 
@@ -37,6 +31,13 @@ void write32ToBuffer(u8* output, u32 value, int* index) {
 }
 
 int processBulkMemoryCommands(BulkMemoryOperation* bulk_memory_op, u8* output) {
+
+#define CHECK_INPUT(input)              \
+  if ((input) > MAX_BULK_MEMORY_DATA) { \
+    output[0] = 0xFF;                   \
+    return 1;                           \
+  }
+
   u32 addresses[MAX_ABSOLUTE_ADDRESSES];
   int i, result_index = 0, input_index = 0;
 
@@ -74,6 +75,7 @@ int processBulkMemoryCommands(BulkMemoryOperation* bulk_memory_op, u8* output) {
 
     u8 byte_count = 4;
     if (!op_header->is_word) {
+      CHECK_INPUT(input_index + 1)
       byte_count = bulk_memory_op->data[input_index++];
     }
 
@@ -114,6 +116,8 @@ int processBulkMemoryCommands(BulkMemoryOperation* bulk_memory_op, u8* output) {
   }
 
   return result_index;
+
+#undef CHECK_INPUT
 }
 
 int processRequestVersion(__attribute__((unused)) RequestVersionOperation* request_version_op, u8* output) {
@@ -140,6 +144,10 @@ int processArrayOperation(ReadArrayOperation* read_array_op, u8* output) {
 
   for (i = 0; i < read_array_op->count; ++i) {
     if ((result_index + size) > MAX_OUTPUT_BYTES) {
+      return 0;
+    }
+
+    if (!VALID_PTR(address) || (size != 0 && !VALID_PTR(address + size - 1))) {
       return 0;
     }
 
@@ -180,6 +188,9 @@ void write32ToGCMemory(u32 addr, u32 value) {
 }
 
 void readBytesFromGCMemory(u32 addr, int byte_count, u8* output) {
+  // This function assumes that the address is valid and that the output buffer is large enough to hold the
+  // data.
+
   int index = 0;
   // Try doing 32bit reads. GCN will crash if addr isn't aligned for them.
   while ((byte_count >= 4) && (addr & 3) == 0) {

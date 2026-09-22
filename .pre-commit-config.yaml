@@ -1,0 +1,9 @@
+minimum_pre_commit_version: 4.4.0
+repos:
+  - repo: https://github.com/pre-commit/mirrors-clang-format
+    rev: v23.1.1
+    hooks:
+    - id: clang-format
+      types_or: [c++, c]
+      # Only run for network folder
+      files: ^kernel\/network\/.*\.[ch]$
