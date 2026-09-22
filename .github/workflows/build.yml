@@ -25,18 +25,12 @@ jobs:
         path: loader/loader.dol
 
   test:
-    container: ghcr.io/randovania/docker-devkitpro-nintendont:main
     runs-on: ubuntu-latest
 
     steps:
     - uses: actions/checkout@v4
       with: 
         submodules: recursive
-
-    - name: Set compiler env vars
-      run: |
-        echo "CC=$DEVKITPPC/bin/powerpc-eabi-gcc" >> $GITHUB_ENV
-        echo "CXX=$DEVKITPPC/bin/powerpc-eabi-g++" >> $GITHUB_ENV
 
     - name: Compile tests
       run: |
