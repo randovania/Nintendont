@@ -32,10 +32,10 @@ void write32ToBuffer(u8* output, u32 value, int* index) {
 
 int processBulkMemoryCommands(BulkMemoryOperation* bulk_memory_op, u8* output) {
 
-#define CHECK_INPUT(input)         \
-  if ((input) > MAX_INPUT_BYTES) { \
-    output[0] = 0xFF;              \
-    return 1;                      \
+#define CHECK_INPUT(input)              \
+  if ((input) > MAX_BULK_MEMORY_DATA) { \
+    output[0] = 0xFF;                   \
+    return 1;                           \
   }
 
   u32 addresses[MAX_ABSOLUTE_ADDRESSES];
@@ -75,6 +75,7 @@ int processBulkMemoryCommands(BulkMemoryOperation* bulk_memory_op, u8* output) {
 
     u8 byte_count = 4;
     if (!op_header->is_word) {
+      CHECK_INPUT(input_index + 1)
       byte_count = bulk_memory_op->data[input_index++];
     }
 

@@ -336,7 +336,7 @@ static u32 NetThread() {
       break;
     }
     case NET_RECEIVE: {
-      if (res < MINIMUM_MESSAGE_SIZE) {
+      if (res < MINIMUM_MESSAGE_SIZE || res > MAXIMUM_MESSAGE_SIZE) {
         new_state = NET_CLOSE;
       } else {
         sync_after_write(&data->operation, res);
