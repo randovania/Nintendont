@@ -11,6 +11,11 @@
 
 // This should point to our smallest operation.
 #define MINIMUM_MESSAGE_SIZE ((int)sizeof(struct RequestVersionOperation))
+// This should point to our biggest operation we can handle.
+#define MAXIMUM_MESSAGE_SIZE ((int)sizeof(struct SocketOperation))
+// The maximum amount of input data that can be stored in a Bulk Memory Operation.
+// The -2 is due to the 2 bytes used for operations_count and absolute_addresses_count
+#define MAX_BULK_MEMORY_DATA (MAX_INPUT_BYTES - 2)
 
 #pragma pack(push, 1)
 typedef struct SocketOperationHeader {
@@ -33,8 +38,7 @@ typedef struct BulkMemoryOperation {
   SocketOperationHeader header; // type is always 1
   u8 operations_count;
   u8 absolute_addresses_count;
-  // -2 due to the 2 bytes used for operations_count and absolute_addresses_count
-  u8 data[MAX_INPUT_BYTES - 2];
+  u8 data[MAX_BULK_MEMORY_DATA];
   // u32 absolute_addresses[absolute_addresses_count];
   // MemoryOperation operations[operations_count];
 } BulkMemoryOperation;

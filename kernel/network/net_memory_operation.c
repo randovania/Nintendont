@@ -32,10 +32,10 @@ void write32ToBuffer(u8* output, u32 value, int* index) {
 
 int processBulkMemoryCommands(BulkMemoryOperation* bulk_memory_op, u8* output) {
 
-#define CHECK_INPUT(input)         \
-  if ((input) > MAX_INPUT_BYTES) { \
-    output[0] = 0xFF;              \
-    return 1;                      \
+#define CHECK_INPUT(input)              \
+  if ((input) > MAX_BULK_MEMORY_DATA) { \
+    output[0] = 0xFF;                   \
+    return 1;                           \
   }
 
   u32 addresses[MAX_ABSOLUTE_ADDRESSES];
@@ -75,6 +75,7 @@ int processBulkMemoryCommands(BulkMemoryOperation* bulk_memory_op, u8* output) {
 
     u8 byte_count = 4;
     if (!op_header->is_word) {
+      CHECK_INPUT(input_index + 1)
       byte_count = bulk_memory_op->data[input_index++];
     }
 
@@ -187,7 +188,8 @@ void write32ToGCMemory(u32 addr, u32 value) {
 }
 
 void readBytesFromGCMemory(u32 addr, int byte_count, u8* output) {
-  // This function assumes that the address is valid and that the output buffer is large enough to hold the data.
+  // This function assumes that the address is valid and that the output buffer is large enough to hold the
+  // data.
 
   int index = 0;
   // Try doing 32bit reads. GCN will crash if addr isn't aligned for them.
