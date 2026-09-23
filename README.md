@@ -9,6 +9,19 @@ In addition to the standard ways of compiling this project, we also provide a do
 You can fetch it with `docker pull ghcr.io/randovania/docker-devkitpro-nintendont:main`  
 And then compile the project with `docker run --mount type=bind,src=.,dst=/nintendont -w /nintendont ghcr.io/randovania/docker-devkitpro-nintendont:main make`
 
+#### Tests
+
+We have tests to make sure the remote memory interaction works as expected. You can find them in the [`./test`](./test/) subfolder.  
+They can be compiled with:  
+`cmake -S ./test -B ./test/build && make -C test/build`  
+and then run with:  
+`./test/build/`  
+Make sure you have cloned the submodules of this repo beforehand.
+
+#### Documentation
+
+You can find documentation, such as how the remote protocol works, in the [`./docs`](./docs/) subfolder.
+
 ---
 
 Original readme follows.
