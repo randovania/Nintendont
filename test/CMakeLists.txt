@@ -2,6 +2,10 @@ cmake_minimum_required(VERSION 3.18.4)
 
 project(NintendontTest)
 
+add_compile_options("--coverage")
+add_link_options("--coverage")
+
+
 add_library(unity)
 set_target_properties(unity PROPERTIES LINKER_LANGUAGE C)
 target_sources(unity
