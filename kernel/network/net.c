@@ -70,15 +70,18 @@ const char* NetSocketOperationStrings[] = {
 };
 
 typedef struct NetSocketData {
-  bool busy;
-  NetSocketState state;
-  int socket;
-  struct ipcmessage ipc_msg;
-  struct sendto_params send_params;
-  SocketOperation operation;
+  // Struct elements optimized for alignment using pahole
   u8 output_buffer[MAX_OUTPUT_BYTES];
+
+  struct sendto_params send_params;
   ioctlv ctlv[3];
 
+  SocketOperation operation;
+  NetSocketState state;
+
+  bool busy;
+  int socket;
+  struct ipcmessage ipc_msg;
 } NetSocketData;
 
 extern char __net_stack_addr_1, __net_stack_size_1, __net_stack_addr_2, __net_stack_size_2;
