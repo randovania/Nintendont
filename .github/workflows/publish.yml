@@ -12,15 +12,31 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+
     - name: make
       run: make
+
+    - name: Update HBC Metadata
+      run: python ./.github/update_xml_metadata.py
+
+    - name: Create zip
+      run: |
+        mkdir -p apps/Nintendont-Multiworld
+        cp ./nintendont/* ./apps/Nintendont-Multiworld
+        zip nintendont-multiworld.zip ./apps/Nintendont-Multiworld/*
+
+    - name: Prepare for upload
+      run: |
+        mkdir -p release
+        cp ./nintendont/boot.dol ./release
+        cp ./nintendont-multiworld.zip ./release
 
     - name: Upload binaries to release
       uses: svenstaro/upload-release-action@v2
       with:
         repo_token: ${{ secrets.GITHUB_TOKEN }}
-        file: loader/loader.dol
-        asset_name: boot.dol
+        file: release/*
+        file_glob: true
         tag: ${{ github.ref }}
         overwrite: true
         body: "Relase executable"
